@@ -147,6 +147,21 @@ async def process_image_in_thread(thread, attachment, endpoint=None, parameter=N
     except Exception as e:
         await processing_msg.edit(content=f"Error: {str(e)}")
 
+async def try_delete_message(message):
+    """Try to delete a message and handle permission errors"""
+    try:
+        await message.delete()
+        return True
+    except discord.Forbidden:
+        await message.channel.send(
+            "Note: I don't have permission to delete messages. Please grant 'Manage Messages' permission for a cleaner experience.", 
+            delete_after=10
+        )
+        return False
+    except Exception as e:
+        print(f"Error deleting message: {e}")
+        return False
+
 @bot.event
 async def on_message(message):
     # Don't process messages from the bot itself
@@ -176,9 +191,11 @@ async def on_message(message):
             # If no valid command, just process the image
             await process_image_in_thread(message.channel, image_attachment)
         
-        # If it's a command without an image, remind them to upload an image
+        # If it's a command without an image, remind them to upload an image and delete the message
         elif message.content.startswith('!moondream'):
-            await message.channel.send("Please upload an image along with your command.")
+            reminder = await message.channel.send("Please upload an image along with your command.")
+            # Try to delete the original message to keep the chat clean
+            await try_delete_message(message)
     
     # Let the command system process commands
     await bot.process_commands(message)
@@ -197,7 +214,9 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
     """
     # Check if an image is attached
     if not ctx.message.attachments:
-        await ctx.send("Please attach an image to analyze.", delete_after=5)
+        reminder = await ctx.send("Please attach an image to analyze.", delete_after=5)
+        # Try to delete the original message
+        await try_delete_message(ctx.message)
         return
     
     # Get the first attached image
@@ -222,13 +241,12 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
             # Just confirm image received if no specific endpoint
             await process_image_in_thread(thread, attachment)
         
-        # Try to delete the original message if the bot has permission
-        try:
-            await ctx.message.delete()
-        except discord.Forbidden:
-            await ctx.send("Note: I don't have permission to delete messages. Please grant 'Manage Messages' permission for a cleaner experience.", delete_after=10)
+        # Try to delete the original message
+        await try_delete_message(ctx.message)
     else:
-        await ctx.send("The attachment does not appear to be an image.", delete_after=5)
+        notice = await ctx.send("The attachment does not appear to be an image.", delete_after=5)
+        # Try to delete the original message
+        await try_delete_message(ctx.message)
 
 # Run the bot
 bot.run(os.getenv('DISCORD_TOKEN'))
