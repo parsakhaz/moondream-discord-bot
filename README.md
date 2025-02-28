@@ -58,7 +58,7 @@ source venv/bin/activate
 ### 3. Install Dependencies
 
 ```bash
-pip install discord.py requests python-dotenv Pillow psutil
+pip install -r requirements.txt
 ```
 
 ### 4. Configure Environment Variables
