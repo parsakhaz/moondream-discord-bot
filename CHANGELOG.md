@@ -5,6 +5,56 @@ All notable changes to the Moondream Discord Bot project will be documented in t
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2025-03-01
+
+### Added
+- Smart image scaling system using PIL's `draft()` method for optimized loading
+- Adaptive image size reduction based on dimensions:
+  - 1/4 scale for images larger than 3200×3200
+  - 1/3 scale for images larger than 2400×2400
+  - 1/2 scale for images larger than 1600×1600
+- New `optimize_image_load()` function for intelligent image preprocessing
+- Diagnostic logging of image scaling operations
+
+### Changed
+- Completely redesigned `image_to_base64()` function with intelligent processing flow
+- Enhanced caching system to store optimized versions of images
+- Updated image processing pipeline to prioritize cache hits
+- Modified visualization functions to work with optimized images
+- Improved memory usage tracking in cache statistics
+
+### Fixed
+- Performance bottleneck with large images (especially from smartphone cameras)
+- Excessive memory usage when processing high-resolution images
+- Slow loading times for initial image processing
+- Redundant processing for detect/point visualization operations
+
+## [1.5.2] - 2025-02-29
+
+### Added
+- Enhanced visualization for object detection with thick bright red bounding boxes
+- Improved point detection visualization with concentric circles in bright red and neon green
+- Better visibility and contrast for all visual elements
+
+### Changed
+- Simplified bounding box design to use a single thick bright red border
+- Optimized point visualization with increased spacing and thicker borders
+- Adjusted center dot size and circle spacing for better visibility
+
+## [1.5.1] - 2025-02-29
+
+### Changed
+- Optimized image processing workflow to avoid redundant encoding operations
+- Modified `process_image_in_thread` to accept pre-encoded base64 images
+- Updated thread creation process to reuse encoded images between title generation and initial command
+- Enhanced caching efficiency by ensuring images are cached on first use
+- Improved memory usage by reducing duplicate image data in memory
+
+### Fixed
+- Eliminated redundant image encoding during thread creation and initial command processing
+- Fixed cache misses during thread title generation
+- Resolved inefficient image processing in command handling
+
 ## [1.5.0] - 2025-02-29
 
 ### Added
@@ -31,32 +81,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Repeated image encoding for the same image
 - Unnecessary API load for repeated operations on the same image
 - Thread identification for renamed threads
-
-## [1.5.1] - 2025-02-29
-
-### Changed
-- Optimized image processing workflow to avoid redundant encoding operations
-- Modified `process_image_in_thread` to accept pre-encoded base64 images
-- Updated thread creation process to reuse encoded images between title generation and initial command
-- Enhanced caching efficiency by ensuring images are cached on first use
-- Improved memory usage by reducing duplicate image data in memory
-
-### Fixed
-- Eliminated redundant image encoding during thread creation and initial command processing
-- Fixed cache misses during thread title generation
-- Resolved inefficient image processing in command handling
-
-## [1.5.2] - 2024-03-XX
-
-### Added
-- Enhanced visualization for object detection with thick bright red bounding boxes
-- Improved point detection visualization with concentric circles in bright red and neon green
-- Better visibility and contrast for all visual elements
-
-### Changed
-- Simplified bounding box design to use a single thick bright red border
-- Optimized point visualization with increased spacing and thicker borders
-- Adjusted center dot size and circle spacing for better visibility
 
 ## [1.4.0] - 2025-02-28
 

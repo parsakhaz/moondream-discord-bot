@@ -98,6 +98,50 @@ def visualize_points(image, points, point_radius=5):
     buf.seek(0)
     return buf
 
+def optimize_image_load(image_bytes):
+    """
+    Load an image with optimized settings based on size.
+    Returns a PIL Image with appropriate scaling applied for better performance.
+    
+    Uses PIL's draft() method to efficiently scale JPEG images during loading:
+    - 1/4 scale if both dimensions > 3200px
+    - 1/3 scale if both dimensions > 2400px
+    - 1/2 scale if both dimensions > 1600px
+    """
+    # Reposition to the start of the BytesIO object
+    image_bytes.seek(0)
+    
+    # Open the image to get its size first
+    img = Image.open(image_bytes)
+    width, height = img.size
+    
+    # Determine scaling factor based on dimensions
+    scale = 1  # Default - no scaling
+    
+    if width > 3200 and height > 3200:
+        scale = 4  # Scale to 1/4 size
+    elif width > 2400 and height > 2400:
+        scale = 3  # Scale to 1/3 size
+    elif width > 1600 and height > 1600:
+        scale = 2  # Scale to 1/2 size
+        
+    if scale > 1:
+        # Calculate new dimensions
+        new_width = width // scale
+        new_height = height // scale
+        
+        # Reset file pointer and use draft mode for efficiency
+        image_bytes.seek(0)
+        img = Image.open(image_bytes)
+        img.draft('RGB', (new_width, new_height))
+        
+        print(f"Image optimized: {width}x{height} → {new_width}x{new_height} (scale: 1/{scale})")
+    
+    # Convert to RGB mode for consistency
+    img = img.convert('RGB')
+    
+    return img
+
 # Create an image cache class for storing encoded images
 class ImageCache:
     def __init__(self, max_size=200):
@@ -182,12 +226,40 @@ async def on_ready():
     # Start the thread cleanup task
     cleanup_old_threads.start()
 
-def image_to_base64(image, url=None):
-    """Convert a PIL Image to base64 string, using cache if available"""
+def image_to_base64(image_bytes=None, image=None, url=None):
+    """
+    Convert an image to base64 string with optimization and caching.
+    
+    This function follows this flow:
+    1. Check if the image is in cache (by URL)
+    2. If cached, return the cached base64 data
+    3. If not cached:
+       a. If image_bytes provided, optimize and load the image
+       b. If PIL Image provided, use it directly
+       c. Encode to base64
+       d. Cache the result by URL
+    
+    Args:
+        image_bytes: BytesIO object containing the image data (optional)
+        image: PIL Image object (optional)
+        url: URL for caching the image (optional)
+        
+    Returns:
+        str: Base64 encoded string of the image
+    """
+    # Check cache first if URL is provided
     if url and (cached_data := image_cache.get(url)):
+        print(f"Cache hit for {url}")
         return cached_data
     
-    # Not in cache, generate the base64
+    # Not in cache, we need to process the image
+    if image is None and image_bytes is not None:
+        # Load and optimize the image from bytes
+        image = optimize_image_load(image_bytes)
+    elif image is None:
+        raise ValueError("Either image_bytes or image must be provided")
+    
+    # Convert the image to base64
     buffer = io.BytesIO()
     image.save(buffer, format="JPEG")
     img_str = base64.b64encode(buffer.getvalue()).decode('utf-8')
@@ -195,6 +267,7 @@ def image_to_base64(image, url=None):
     
     # Store in cache if URL was provided
     if url:
+        print(f"Caching image for {url}")
         image_cache.put(url, base64_data)
     
     return base64_data
@@ -352,19 +425,15 @@ async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=
         command_display = f"**Command:** `{command_used}`"
     
     # Send the "processing" message
-    processing_msg = await thread.send(f"{command_display}\n\nProcessing your image...")
+    processing_msg = await thread.send(f"{command_display}\n\nProcessing your image... please wait before running another command.")
     
     try:
         # Use pre-encoded base64 if provided, otherwise encode the image
         if pre_encoded_base64:
             image_base64 = pre_encoded_base64
         else:
-            # Open the image from bytes
-            image_bytes.seek(0)
-            image = Image.open(image_bytes).convert('RGB')
-            
             # Convert image to base64, using cache if URL is provided
-            image_base64 = image_to_base64(image, url=image_url)
+            image_base64 = image_to_base64(image_bytes=image_bytes, url=image_url)
         
         # If no endpoint specified, just confirm image is ready and send help
         if not endpoint:
@@ -412,9 +481,8 @@ async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=
             objects = result["objects"]
             formatted_result = f"**Detecting:** {parameter or 'subject'}\n**Found:** {len(objects)} instances\n───────────────────────────────────────"
             
-            # Create visualization
-            image_bytes.seek(0)
-            image = Image.open(image_bytes).convert('RGB')
+            # Create visualization with an optimized image
+            image = optimize_image_load(image_bytes)
             vis_buffer = visualize_bounding_boxes(image, objects)
             
             # Send both the text result and visualization
@@ -430,9 +498,8 @@ async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=
             points = result["points"]
             formatted_result = f"**Pointing at:** {parameter or 'subject'}\n**Found:** {len(points)} points\n───────────────────────────────────────"
             
-            # Create visualization
-            image_bytes.seek(0)
-            image = Image.open(image_bytes).convert('RGB')
+            # Create visualization with an optimized image
+            image = optimize_image_load(image_bytes)
             vis_buffer = visualize_points(image, points)
             
             # Send both the text result and visualization
@@ -531,15 +598,13 @@ async def on_message(message):
                     await save_image_to_thread(thread, image_bytes, image_attachment.filename)
                     
                     # Process with the new image, passing the URL for caching
-                    image_bytes.seek(0)
                     await process_image_in_thread(
                         thread, 
                         image_bytes, 
                         image_attachment.filename, 
                         endpoint, 
                         parameter,
-                        image_url=image_attachment.url,  # Pass the URL for caching
-                        pre_encoded_base64=None  # No pre-encoded base64 needed
+                        image_url=image_attachment.url
                     )
                 
                 # Otherwise, use the last saved image for this thread
@@ -557,8 +622,7 @@ async def on_message(message):
                         image_info['filename'], 
                         endpoint, 
                         parameter,
-                        image_url=image_info['url'],  # Pass the URL for caching
-                        pre_encoded_base64=None  # No pre-encoded base64 needed
+                        image_url=image_info['url']
                     )
                 
                 else:
@@ -645,10 +709,8 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
         # Save the image to the thread
         await save_image_to_thread(thread, image_bytes, attachment.filename)
         
-        # Open the image and convert to base64 for API - do this only once
-        image_bytes.seek(0)
-        image = Image.open(image_bytes).convert('RGB')
-        image_base64 = image_to_base64(image, url=attachment.url)  # Use cache for title generation
+        # Convert to base64 for API - using our optimized function
+        image_base64 = image_to_base64(image_bytes=image_bytes, url=attachment.url)
         
         # Get a title for the image using the already encoded base64
         title = await get_image_title(image_base64)
@@ -673,7 +735,6 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
         await send_help_message(thread, ctx.author)
         
         # Process the image in the thread (map endpoint alias to actual endpoint if needed)
-        image_bytes.seek(0)
         actual_endpoint = endpoint
         if endpoint and endpoint in ALIAS_TO_COMMAND:
             actual_endpoint = ALIAS_TO_COMMAND[endpoint]
@@ -685,8 +746,8 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
                 attachment.filename, 
                 actual_endpoint, 
                 parameter,
-                image_url=attachment.url,  # Pass URL for caching
-                pre_encoded_base64=image_base64  # Pass the already encoded image
+                image_url=attachment.url,
+                pre_encoded_base64=image_base64
             )
         else:
             # Just confirm image received if no specific endpoint
@@ -789,6 +850,7 @@ async def cache_stats(ctx):
         f"**Cache Hits:** {stats['hits']}\n"
         f"**Cache Misses:** {stats['misses']}\n"
         f"**Hit Ratio:** {stats['hit_ratio']*100:.2f}%\n"
+        f"**Memory Usage (est):** {sum(len(cache_item[0]) for cache_item in image_cache.cache.values()) / (1024*1024):.2f} MB\n"
     )
     await ctx.send(stats_message)
 

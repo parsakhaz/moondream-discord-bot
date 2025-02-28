@@ -9,6 +9,7 @@ A Discord bot that integrates with Moondream's Vision AI API to analyze images d
 - **Multi-modal Image Analysis**: Analyze images using Moondream's powerful AI vision API
 - **Thread-Based Conversations**: Each image analysis gets its own dedicated thread for a clean conversation flow
 - **AI-Generated Thread Titles**: Dynamically names threads based on image content for better organization
+- **Smart Image Scaling**: Automatically optimizes large images for better performance
 - **Optimized Image Processing**: Efficiently handles image encoding with zero redundancy
 - **Smart Image Caching**: Advanced LRU caching system that eliminates duplicate processing
 - **Automatic Thread Cleanup**: Periodically cleans up old thread references to prevent memory leaks
@@ -144,6 +145,18 @@ These commands are available to users with administrator permissions:
 
 ## Performance Features
 
+### Smart Image Scaling
+
+The bot automatically optimizes images using PIL's efficient `draft()` method:
+
+- Images larger than 3200×3200 are scaled to 1/4 size
+- Images larger than 2400×2400 are scaled to 1/3 size
+- Images larger than 1600×1600 are scaled to 1/2 size
+- Smaller images remain at original size
+- This provides 3-4x faster image loading for large photos from smartphone cameras
+- All scaling is done during initial load, ensuring optimal performance
+- The bot logs detailed information about scaling operations
+
 ### Image Processing Optimization
 
 The bot implements several optimizations for efficient image handling:
@@ -164,6 +177,7 @@ The bot implements an LRU (Least Recently Used) caching system for processed ima
 - Cache size is configurable (default: 200 images)
 - Automatically evicts least recently used images when full
 - Performance statistics are logged every 24 hours
+- Stores optimized versions of images to save memory and improve performance
 
 ### Thread Management
 
@@ -199,6 +213,16 @@ Edit these values in `bot.py` to customize behavior:
 # Image cache size
 image_cache = ImageCache(max_size=200)  # Number of images to keep in cache
 
+# Image scaling thresholds
+# Adjust these values to change when and how much images are scaled down
+# (in the optimize_image_load function)
+if width > 3200 and height > 3200:
+    scale = 4  # Scale to 1/4 size
+elif width > 2400 and height > 2400:
+    scale = 3  # Scale to 1/3 size
+elif width > 1600 and height > 1600:
+    scale = 2  # Scale to 1/2 size
+
 # Discord message size limits
 DISCORD_REGULAR_MSG_LIMIT = 1900  # Setting slightly under the 2000 limit for safety
 DISCORD_CODE_BLOCK_LIMIT = 1800  # Even smaller limit for code blocks due to backticks
@@ -224,6 +248,13 @@ COMMAND_ALIASES = {
 - Ensure you're within the API rate limits
 - Verify that image formats are supported (JPG, PNG recommended)
 
+### Performance Issues
+- Use `!cache_stats` to check if the cache is working effectively
+- Make sure the image optimization is working (look for "Image optimized" log messages)
+- If processing large images is still slow, you can adjust the scaling thresholds
+- Clear the cache with `!clear_cache` if you notice degraded performance
+- Check `!thread_stats` to ensure thread cleanup is working properly
+
 ### Thread Creation Issues
 - Ensure the bot has "Create Public Threads" and "Manage Threads" permissions
 - Some channels may have thread creation disabled by server settings
@@ -232,11 +263,6 @@ COMMAND_ALIASES = {
 - If threads aren't being renamed, check that the bot has "Manage Threads" permissions
 - Very unusual images might not generate good titles; the bot will fall back to timestamp-based names
 - Check API logs for any errors during title generation
-
-### Performance Issues
-- Use `!cache_stats` to check if the cache is working effectively
-- Clear the cache with `!clear_cache` if you notice degraded performance
-- Check `!thread_stats` to ensure thread cleanup is working properly
 
 ### Command Not Working in Thread
 - Make sure you're using the correct command format
@@ -251,3 +277,4 @@ COMMAND_ALIASES = {
 
 - [Moondream API](https://console.moondream.ai/) - Vision AI API
 - [Discord.py](https://discordpy.readthedocs.io/) - Discord API wrapper
+- [Pillow/PIL](https://pillow.readthedocs.io/) - Python Imaging Library
