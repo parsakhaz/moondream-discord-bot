@@ -405,8 +405,8 @@ async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=
             await thread.send(file=discord.File(vis_buffer, filename=f"detect_{parameter}.jpg"))
             
             # Send the raw API response as a separate message
-            raw_response = json.dumps(result, indent=2)
-            await MessageSplitter.send_code_block(thread, raw_response, "json")
+            # raw_response = json.dumps(result, indent=2)
+            # await MessageSplitter.send_code_block(thread, raw_response, "json")
             return
             
         elif actual_endpoint == 'point':
@@ -423,8 +423,8 @@ async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=
             await thread.send(file=discord.File(vis_buffer, filename=f"point_{parameter}.jpg"))
             
             # Send the raw API response as a separate message
-            raw_response = json.dumps(result, indent=2)
-            await MessageSplitter.send_code_block(thread, raw_response, "json")
+            # raw_response = json.dumps(result, indent=2)
+            # await MessageSplitter.send_code_block(thread, raw_response, "json")
             return
         else:
             formatted_result = f"**Raw response:** {json.dumps(result)}\n───────────────────────────────────────"
@@ -436,8 +436,8 @@ async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=
         )
         
         # Send the raw API response as a separate message with proper splitting
-        raw_response = json.dumps(result, indent=2)
-        await MessageSplitter.send_code_block(thread, raw_response, "json")
+        # raw_response = json.dumps(result, indent=2)
+        # await MessageSplitter.send_code_block(thread, raw_response, "json")
         
     except Exception as e:
         await MessageSplitter.edit_message(
