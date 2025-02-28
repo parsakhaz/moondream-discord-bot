@@ -5,6 +5,25 @@ All notable changes to the Moondream Discord Bot project will be documented in t
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-02-28
+
+### Added
+- Dynamic thread titling that uses Moondream's query capability to name threads based on image content
+- New function `get_image_title()` to generate meaningful titles for image analysis threads
+- Title cleaning and formatting to ensure Discord thread name compatibility
+- Thread renaming after initial creation to replace timestamp with descriptive title
+- Automatic fallback to timestamp-based naming if title generation fails
+- Logging for successful thread renaming operations
+
+### Changed
+- Thread creation process now uses a two-step approach: create with temporary name, then update with AI-generated title
+- Thread naming convention changed from "Moondream Analysis [timestamp]" to "Moondream: [Generated Title]"
+- Improved user experience with more descriptive thread names for easier navigation
+- Enhanced thread management system to handle title updates
+
+### Fixed
+- Title length issues with Discord's 100-character thread name limit
+
 ## [1.3.0] - 2025-02-28
 
 ### Added

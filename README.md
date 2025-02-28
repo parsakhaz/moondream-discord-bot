@@ -8,6 +8,7 @@ A Discord bot that integrates with Moondream's Vision AI API to analyze images d
 
 - **Multi-modal Image Analysis**: Analyze images using Moondream's powerful AI vision API
 - **Thread-Based Conversations**: Each image analysis gets its own dedicated thread for a clean conversation flow
+- **AI-Generated Thread Titles**: Dynamically names threads based on image content for better organization
 - **Automatic Image Handling**: Images are preserved within threads even when original messages are deleted
 - **Multiple Analysis Types**:
   - Image Captioning: Generate descriptive captions
@@ -102,6 +103,7 @@ python bot.py
    ```
 
 2. The bot will create a new thread dedicated to analyzing that image
+3. The thread will be automatically named based on the image content (e.g., "Moondream: Liberty Leading the People" for a painting)
 
 ### Commands Inside Threads
 
@@ -118,10 +120,21 @@ Once in a thread, you can use these shorthand commands:
 ### Example Workflow
 
 1. User uploads image with `!c` in a channel
-2. Bot creates a thread and posts the image caption
-3. User asks `!q what is the subject wearing?` in the thread
-4. Bot analyzes the same image and answers the question
-5. User can continue with more commands in the same thread
+2. Bot creates a thread with an AI-generated name based on the image content
+3. Bot posts the image caption in the thread
+4. User asks `!q what is the subject wearing?` in the thread
+5. Bot analyzes the same image and answers the question
+6. User can continue with more commands in the same thread
+
+## Thread Naming
+
+The bot uses Moondream's AI to generate descriptive thread names:
+
+- Initial threads are created with a temporary timestamp-based name
+- The bot then queries the AI with "return a title for this image"
+- Thread is renamed to "Moondream: [Generated Title]"
+- If title generation fails, the original timestamp-based name is retained
+- Titles are automatically shortened if they exceed Discord's 100-character limit
 
 ## Message Size Handling
 
@@ -163,6 +176,11 @@ COMMAND_ALIASES = {
 ### Thread Creation Issues
 - Ensure the bot has "Create Public Threads" and "Manage Threads" permissions
 - Some channels may have thread creation disabled by server settings
+
+### Thread Naming Issues
+- If threads aren't being renamed, check that the bot has "Manage Threads" permissions
+- Very unusual images might not generate good titles; the bot will fall back to timestamp-based names
+- Check API logs for any errors during title generation
 
 ### Command Not Working in Thread
 - Make sure you're using the correct command format
