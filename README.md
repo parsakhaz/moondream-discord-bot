@@ -22,6 +22,8 @@ A Discord bot that integrates with Moondream's Vision AI API to analyze images d
 - **Message Length Handling**: Automatically splits large responses to avoid Discord's message length limits
 - **Visual Separators**: Clear visual separation between responses for better readability
 - **Admin Commands**: Monitor cache performance and server resource usage
+- **Visual Object Detection**: Enhanced visualization of detected objects with thick bright red bounding boxes
+- **Visual Point Detection**: Clear point visualization with concentric circles in bright red and neon green
 
 ## Requirements
 

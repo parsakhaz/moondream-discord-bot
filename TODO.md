@@ -20,6 +20,12 @@
   - Added admin command to view thread statistics
   - Added check for archived threads
 
+- **Enhanced visualization features**: Improved visual feedback for detect and point commands
+  - Added thick bright red bounding boxes for object detection
+  - Implemented concentric circle design for point visualization
+  - Optimized visibility with better spacing and contrast
+  - Added multi-color support for point markers
+
 ## Critical Issues
 
 - **Fix message splitting**: The caption command (`!c`) is still hitting Discord's 2000 character limit with a 400 Bad Request error
@@ -89,6 +95,12 @@
   - Add examples with each command in help message
   - Create command-specific help (`!help caption`, etc.)
   - Include information about caching in help documentation
+
+- **Further enhance visualizations**: Consider additional visual improvements
+  - Add optional text labels for detected objects
+  - Implement confidence score display
+  - Add color customization options for users
+  - Consider adding animation effects for point markers
 
 ## Testing & Documentation
 

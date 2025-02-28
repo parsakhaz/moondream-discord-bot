@@ -46,6 +46,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed cache misses during thread title generation
 - Resolved inefficient image processing in command handling
 
+## [1.5.2] - 2024-03-XX
+
+### Added
+- Enhanced visualization for object detection with thick bright red bounding boxes
+- Improved point detection visualization with concentric circles in bright red and neon green
+- Better visibility and contrast for all visual elements
+
+### Changed
+- Simplified bounding box design to use a single thick bright red border
+- Optimized point visualization with increased spacing and thicker borders
+- Adjusted center dot size and circle spacing for better visibility
+
 ## [1.4.0] - 2025-02-28
 
 ### Added
