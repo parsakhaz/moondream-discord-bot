@@ -79,6 +79,7 @@ MOONDREAM_API_KEY=your_moondream_api_key_here
    - Manage Messages (for deleting command messages)
    - Attach Files
    - Read Message History
+Link: https://discord.com/oauth2/authorize?client_id=1344794705065672714&permissions=309237721088&integration_type=0&scope=bot
 5. Invite the bot to your server using the generated link
 
 ## Starting the Bot
