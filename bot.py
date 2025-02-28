@@ -92,8 +92,8 @@ async def download_image_bytes(url):
 async def send_help_message(thread, user):
     """Send a simplified help message with available commands"""
     help_message = (
-        f"# Welcome {user.mention} to Moondream.\n\n"
-        "I'm a Vision AI that can analyze images. \n\nUse one of my commands to analyze your image:\n\n"
+        f"# Welcome {user.mention} to Moondream Vision AI\n\n"
+        "I can analyze images using Moondream's vision API. Use these commands with the image below:\n\n"
         "**📝 Caption Generation**\n"
         "`!c` - Generate a description of your image\n\n"
         "**❓ Visual Question Answering**\n"
@@ -102,7 +102,8 @@ async def send_help_message(thread, user):
         "`!d [object]` - Detect specific objects in your image\n\n"
         "**👉 Object Pointing**\n"
         "`!p [object]` - Point to specific objects in your image\n\n"
-        "Upload a new image at any time to analyze it! Use `!help` for more details."
+        "Upload a new image at any time to analyze it!\n"
+        "Use `!help` for more details or `!learn` to discover Moondream's capabilities."
     )
     await MessageSplitter.send_message(thread, help_message)
 
@@ -128,6 +129,10 @@ async def send_detailed_help(channel):
         "- `!moondream query [question]` or `!md query [question]` - Ask a question about the image\n"
         "- `!moondream detect [object]` or `!md detect [object]` - Detect objects in the image\n"
         "- `!moondream point [object]` or `!md point [object]` - Point to objects in the image\n\n"
+        
+        "## Informational Commands\n"
+        "- `!learn` or `!info` - Learn about Moondream Vision AI capabilities\n"
+        "- `!help` - Display this command reference\n\n"
         
         "## Tips\n"
         "- Upload an image with any command to start a new analysis thread\n"
@@ -374,10 +379,16 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
     
     # Check if an image is attached
     if not ctx.message.attachments:
+        learn_message = (
+            f"{command_display}\n\n"
+            "Please attach an image to analyze.\n\n"
+            "**To learn more:**\n"
+            "• Run `!learn` to learn about Moondream & what it can do"
+        )
         reminder = await MessageSplitter.send_message(
             ctx.channel, 
-            f"{command_display}\n\nPlease attach an image to analyze.",
-            delete_after=10
+            learn_message,
+            delete_after=15
         )
         # Try to delete the original message
         await try_delete_message(ctx.message)
@@ -466,6 +477,42 @@ async def moondream_short(ctx, endpoint=None, *, parameter=None):
     !md query What's in this image? - Ask a question about the attached image
     """
     await moondream(ctx, endpoint, parameter=parameter)
+
+@bot.command(aliases=['info'])
+async def learn(ctx):
+    """Learn more about Moondream Vision AI and its capabilities"""
+    
+    # Create a readable, formatted message about Moondream
+    learn_message = (
+        "# About Moondream Vision AI\n\n"
+        "Moondream is a powerful and efficient Vision-Language Model (VLM) that can analyze images and respond to natural language queries.\n\n"
+        
+        "## Core Capabilities\n\n"
+        "**📝 Image Captioning**\n"
+        "Moondream can caption your images.\n\n"
+        
+        "**❓ Question Answering**\n"
+        "Ask questions about your images content and get answers.\n\n"
+        
+        "**🔍 Object Detection**\n"
+        "Detect any object from an image and visualize it.\n\n"
+        
+        "**👉 Point Detection**\n"
+        "Get precise X,Y coordinate locations of any object in an image and point to it.\n\n"
+        
+        "## Technical Details\n\n"
+        "• **Model Size**: 1.9B Parameters\n"
+        "• **Memory**: Only requires 4GB~ VRAM\n"
+        "• **License**: Apache 2.0\n"
+        "• **Documentation**: https://docs.moondream.ai/\n\n"
+        
+        "## Try It Now!\n\n"
+        "Upload an image with `!md` or use one of our specific commands like `!c` for captions.\n"
+        "Type `!help` to see all available commands."
+    )
+    
+    await MessageSplitter.send_message(ctx.channel, learn_message)
+
 
 # Run the bot
 bot.run(os.getenv('DISCORD_TOKEN'))
