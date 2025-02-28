@@ -6,7 +6,7 @@ import base64
 import json
 import io
 import os
-from PIL import Image
+from PIL import Image, ImageDraw
 from dotenv import load_dotenv
 import datetime
 import re
@@ -16,6 +16,70 @@ import time
 
 # Load environment variables
 load_dotenv()
+
+def visualize_bounding_boxes(image, boxes, outline="#FF0000", width=4):
+    """Draw bounding boxes on a copy of the image and return an in-memory buffer."""
+    # Create a copy of the image to avoid modifying the original
+    img_copy = image.copy()
+    draw = ImageDraw.Draw(img_copy)
+    img_width, img_height = img_copy.size
+
+    # Draw each bounding box
+    for box in boxes:
+        x_min = box["x_min"] * img_width
+        y_min = box["y_min"] * img_height
+        x_max = box["x_max"] * img_width
+        y_max = box["y_max"] * img_height
+        # Draw a slightly thicker black outline first for contrast
+        draw.rectangle([x_min, y_min, x_max, y_max], outline="#000000", width=width+2)
+        # Draw the bright red box on top
+        draw.rectangle([x_min, y_min, x_max, y_max], outline=outline, width=width)
+    
+    # Save to buffer
+    buf = io.BytesIO()
+    img_copy.save(buf, format="JPEG")
+    buf.seek(0)
+    return buf
+
+def visualize_points(image, points, point_color="#FF0000", point_radius=5):
+    """Draw points on a copy of the image and return an in-memory buffer."""
+    # Create a copy of the image to avoid modifying the original
+    img_copy = image.copy()
+    draw = ImageDraw.Draw(img_copy)
+    img_width, img_height = img_copy.size
+
+    # Draw each point with a concentric circle design
+    for point in points:
+        x = point["x"] * img_width
+        y = point["y"] * img_height
+        
+        # Draw outer black circle for contrast
+        outer_radius = point_radius * 3
+        draw.ellipse(
+            [x - outer_radius - 1, y - outer_radius - 1, 
+             x + outer_radius + 1, y + outer_radius + 1],
+            outline="#000000", width=3
+        )
+        
+        # Draw outer red circle
+        draw.ellipse(
+            [x - outer_radius, y - outer_radius, 
+             x + outer_radius, y + outer_radius],
+            outline=point_color, width=2
+        )
+        
+        # Draw solid inner point
+        draw.ellipse(
+            [x - point_radius, y - point_radius, 
+             x + point_radius, y + point_radius],
+            fill=point_color
+        )
+    
+    # Save to buffer
+    buf = io.BytesIO()
+    img_copy.save(buf, format="JPEG")
+    buf.seek(0)
+    return buf
 
 # Create an image cache class for storing encoded images
 class ImageCache:
@@ -322,15 +386,46 @@ async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=
             )
             return
         
-        # Format the response based on the endpoint
+        # Format the response and prepare visualization if needed
         if actual_endpoint == 'caption':
             formatted_result = f"**Caption:** {result['caption']}\n───────────────────────────────────────"
         elif actual_endpoint == 'query':
             formatted_result = f"**Question:** {parameter}\n**Moondream:** {result['answer']}\n───────────────────────────────────────"
         elif actual_endpoint == 'detect':
-            formatted_result = f"**Detecting:** {parameter or 'subject'}\n**Found:** {json.dumps(result['objects'])}\n───────────────────────────────────────"
+            objects = result["objects"]
+            formatted_result = f"**Detecting:** {parameter or 'subject'}\n**Found:** {len(objects)} instances\n───────────────────────────────────────"
+            
+            # Create visualization
+            image_bytes.seek(0)
+            image = Image.open(image_bytes).convert('RGB')
+            vis_buffer = visualize_bounding_boxes(image, objects)
+            
+            # Send both the text result and visualization
+            await MessageSplitter.edit_message(processing_msg, f"{command_display}\n\n{formatted_result}")
+            await thread.send(file=discord.File(vis_buffer, filename=f"detect_{parameter}.jpg"))
+            
+            # Send the raw API response as a separate message
+            raw_response = json.dumps(result, indent=2)
+            await MessageSplitter.send_code_block(thread, raw_response, "json")
+            return
+            
         elif actual_endpoint == 'point':
-            formatted_result = f"**Pointing at:** {parameter or 'subject'}\n**Points:** {json.dumps(result['points'])}\n───────────────────────────────────────"
+            points = result["points"]
+            formatted_result = f"**Pointing at:** {parameter or 'subject'}\n**Found:** {len(points)} points\n───────────────────────────────────────"
+            
+            # Create visualization
+            image_bytes.seek(0)
+            image = Image.open(image_bytes).convert('RGB')
+            vis_buffer = visualize_points(image, points)
+            
+            # Send both the text result and visualization
+            await MessageSplitter.edit_message(processing_msg, f"{command_display}\n\n{formatted_result}")
+            await thread.send(file=discord.File(vis_buffer, filename=f"point_{parameter}.jpg"))
+            
+            # Send the raw API response as a separate message
+            raw_response = json.dumps(result, indent=2)
+            await MessageSplitter.send_code_block(thread, raw_response, "json")
+            return
         else:
             formatted_result = f"**Raw response:** {json.dumps(result)}\n───────────────────────────────────────"
         
