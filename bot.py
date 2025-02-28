@@ -256,7 +256,7 @@ async def save_image_to_thread(thread, image_bytes, filename):
     # Return the image message for reference
     return image_message
 
-async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=None, parameter=None, image_url=None):
+async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=None, parameter=None, image_url=None, pre_encoded_base64=None):
     """Process an image within a thread"""
     # Add a divider before the new response
     await thread.send("───────────────────────────────────────")
@@ -274,12 +274,16 @@ async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=
     processing_msg = await thread.send(f"{command_display}\n\nProcessing your image...")
     
     try:
-        # Open the image from bytes
-        image_bytes.seek(0)
-        image = Image.open(image_bytes).convert('RGB')
-        
-        # Convert image to base64, using cache if URL is provided
-        image_base64 = image_to_base64(image, url=image_url)
+        # Use pre-encoded base64 if provided, otherwise encode the image
+        if pre_encoded_base64:
+            image_base64 = pre_encoded_base64
+        else:
+            # Open the image from bytes
+            image_bytes.seek(0)
+            image = Image.open(image_bytes).convert('RGB')
+            
+            # Convert image to base64, using cache if URL is provided
+            image_base64 = image_to_base64(image, url=image_url)
         
         # If no endpoint specified, just confirm image is ready and send help
         if not endpoint:
@@ -422,7 +426,8 @@ async def on_message(message):
                         image_attachment.filename, 
                         endpoint, 
                         parameter,
-                        image_url=image_attachment.url  # Pass the URL for caching
+                        image_url=image_attachment.url,  # Pass the URL for caching
+                        pre_encoded_base64=None  # No pre-encoded base64 needed
                     )
                 
                 # Otherwise, use the last saved image for this thread
@@ -440,7 +445,8 @@ async def on_message(message):
                         image_info['filename'], 
                         endpoint, 
                         parameter,
-                        image_url=image_info['url']  # Pass the URL for caching
+                        image_url=image_info['url'],  # Pass the URL for caching
+                        pre_encoded_base64=None  # No pre-encoded base64 needed
                     )
                 
                 else:
@@ -527,12 +533,12 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
         # Save the image to the thread
         await save_image_to_thread(thread, image_bytes, attachment.filename)
         
-        # Open the image and convert to base64 for API
+        # Open the image and convert to base64 for API - do this only once
         image_bytes.seek(0)
         image = Image.open(image_bytes).convert('RGB')
         image_base64 = image_to_base64(image, url=attachment.url)  # Use cache for title generation
         
-        # Get a title for the image
+        # Get a title for the image using the already encoded base64
         title = await get_image_title(image_base64)
         
         # Update thread name with the generated title if available
@@ -567,7 +573,8 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
                 attachment.filename, 
                 actual_endpoint, 
                 parameter,
-                image_url=attachment.url  # Pass URL for caching
+                image_url=attachment.url,  # Pass URL for caching
+                pre_encoded_base64=image_base64  # Pass the already encoded image
             )
         else:
             # Just confirm image received if no specific endpoint
