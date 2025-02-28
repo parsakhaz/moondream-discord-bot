@@ -1,187 +1,178 @@
-# Discord Moondream Bot
+# Moondream Discord Bot
 
-A Discord bot that creates threaded conversations for users to interact with Moondream's AI image analysis API. This bot allows users to analyze images with various Moondream
-capabilities (caption, query, detect, point) directly within Discord threads.
+A Discord bot that integrates with Moondream's Vision AI API to analyze images directly within Discord. Create dedicated image analysis threads, ask questions about images, get captions, detect objects, and more.
+
+![Moondream Bot Demo](https://i.imgur.com/placeholder.png)
 
 ## Features
 
-- Thread-based conversations for clean user interaction
-- Direct integration with Moondream API via CURL-like requests
-- Support for all Moondream endpoints (caption, query, detect, point)
-- Raw API response display for transparency and debugging
-- Simple command structure with or without prefixes (context-aware)
-- Minimal dependencies for easier deployment
+- **Multi-modal Image Analysis**: Analyze images using Moondream's powerful AI vision API
+- **Thread-Based Conversations**: Each image analysis gets its own dedicated thread for a clean conversation flow
+- **Automatic Image Handling**: Images are preserved within threads even when original messages are deleted
+- **Multiple Analysis Types**:
+  - Image Captioning: Generate descriptive captions
+  - Visual Question Answering: Ask any question about an image
+  - Object Detection: Locate specific objects in images
+  - Object Pointing: Get coordinates for specific objects
+- **Shorthand Commands**: Use simplified commands like `!c`, `!q`, `!d`, and `!p` for faster interaction
+- **Message Length Handling**: Automatically splits large responses to avoid Discord's message length limits
+- **Visual Separators**: Clear visual separation between responses for better readability
 
-## Prerequisites
+## Requirements
 
 - Python 3.8 or higher
-- Discord Bot Token (from Discord Developer Portal)
-- Moondream API Key (from console.moondream.ai)
-- Administrator permissions on a Discord server
+- Discord Bot Token
+- Moondream API Key
+- Discord server with permission to add bots and create threads
 
-## Setup Guide
+## Installation
 
-### 1. Create a Discord Application and Bot
-
-1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
-2. Click "New Application" and give it a name like "Moondream Bot"
-3. Navigate to the "Bot" tab in the left sidebar and click "Add Bot"
-4. Under the bot settings, enable the following Privileged Gateway Intents:
-   - Message Content Intent
-   - Server Members Intent
-   - Presence Intent
-5. Click "Reset Token" and copy your new bot token (save it securely for later)
-
-### 2. Set Bot Permissions and Generate Invite URL
-
-1. Still in the Discord Developer Portal, go to OAuth2 > URL Generator
-2. Under "Scopes", select "bot"
-3. Under "Bot Permissions", select the following permissions:
-   - Read Messages/View Channels
-   - Send Messages
-   - Create Public Threads
-   - Send Messages in Threads
-   - Manage Threads
-   - Attach Files
-   - Read Message History
-4. Copy the generated URL at the bottom of the page
-5. Open the URL in your browser and select your server to invite the bot
-
-### 3. Get a Moondream API Key
-
-1. Go to [console.moondream.ai](https://console.moondream.ai)
-2. Create an account or log in
-3. Navigate to the API section and generate a new API key
-4. Copy and save this API key securely
-
-### 4. Set Up Your Development Environment
+### 1. Clone the Repository
 
 ```bash
-# Create a project directory
-mkdir discord-moondream-bot
-cd discord-moondream-bot
-
-# Create and activate virtual environment
-python -m venv venv
-
-# On Windows
-venv\Scripts\activate
-
-# On macOS/Linux
-source venv/bin/activate
-
-# Install required dependencies
-pip install discord.py requests python-dotenv pillow
+git clone https://github.com/yourusername/moondream-discord-bot.git
+cd moondream-discord-bot
 ```
 
-### 5. Create Project Files
+### 2. Create a Virtual Environment
 
-Create a `.env` file in your project directory:
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment (Windows)
+venv\Scripts\activate
+
+# Activate virtual environment (macOS/Linux)
+source venv/bin/activate
+```
+
+### 3. Install Dependencies
+
+```bash
+pip install discord.py requests python-dotenv Pillow
+```
+
+### 4. Configure Environment Variables
+
+Create a `.env` file in the root directory with the following:
 
 ```
 DISCORD_TOKEN=your_discord_bot_token_here
 MOONDREAM_API_KEY=your_moondream_api_key_here
 ```
 
-Create the `bot.py` file with the code provided in this repository.
+## Discord Bot Setup
 
-### 6. Run the Bot
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. Create a new application and add a bot
+3. Enable the following intents:
+   - Message Content Intent
+   - Server Members Intent
+   - Presence Intent
+4. Generate an invite link with the following permissions:
+   - Read Messages/View Channels
+   - Send Messages
+   - Create Public Threads
+   - Send Messages in Threads
+   - Manage Threads
+   - Manage Messages (for deleting command messages)
+   - Attach Files
+   - Read Message History
+5. Invite the bot to your server using the generated link
+
+## Starting the Bot
 
 ```bash
 python bot.py
 ```
 
-If everything is set up correctly, you should see:
+## Usage
 
-```
-Logged in as YourBotName (bot_id)
-------
-```
+### Starting an Image Analysis
 
-## Usage Guide
+1. In any channel where the bot has access, upload an image with one of these commands:
+   ```
+   !moondream
+   !caption (or !c)
+   !query <question> (or !q <question>)
+   !detect <object> (or !d <object>)
+   !point <object> (or !p <object>)
+   ```
 
-### Starting a Moondream Session
+2. The bot will create a new thread dedicated to analyzing that image
 
-**Method 1: Interactive Mode**
+### Commands Inside Threads
 
-```
-!moondream
-```
+Once in a thread, you can use these shorthand commands:
 
-This will create a new thread where the bot will provide instructions on how to use it.
+| Command | Description | Example |
+|---------|-------------|---------|
+| `!c` | Generate a caption for the image | `!c` |
+| `!q <question>` | Ask a question about the image | `!q What colors are in this image?` |
+| `!d <object>` | Detect specified objects | `!d face` |
+| `!p <object>` | Point at specified objects | `!p eyes` |
+| `!help` | Display detailed help information | `!help` |
 
-**Method 2: Direct Command**
+### Example Workflow
 
-```
-!moondream caption
-```
+1. User uploads image with `!c` in a channel
+2. Bot creates a thread and posts the image caption
+3. User asks `!q what is the subject wearing?` in the thread
+4. Bot analyzes the same image and answers the question
+5. User can continue with more commands in the same thread
 
-(with an attached image) This will create a thread and immediately process the image with the specified command.
+## Message Size Handling
 
-### Commands Within Threads
+For large API responses (especially with object detection), the bot automatically:
+1. Separates formatted responses from raw JSON
+2. Splits large JSON responses into multiple parts if needed
+3. Labels each part (e.g., "Part 1/3") for clarity
 
-Once inside a thread, you can use these commands without the `!moondream` prefix:
+## Advanced Configuration
 
-- `caption` - Generate a description of the attached image
-- `query [question]` - Ask a question about the attached image
-  - Example: `query What objects are in this image?`
-- `detect [object]` - Detect specified objects in the attached image
-  - Example: `detect person`
-- `point [object]` - Point at specified objects in the attached image
-  - Example: `point dog`
+Edit these values in `bot.py` to customize behavior:
 
-Always attach an image when using these commands.
+```python
+# Discord message size limits
+DISCORD_REGULAR_MSG_LIMIT = 1900  # Setting slightly under the 2000 limit for safety
+DISCORD_CODE_BLOCK_LIMIT = 1800  # Even smaller limit for code blocks due to backticks
 
-## API Response Format
-
-For each command, the bot will return:
-
-1. A formatted response with the main information
-2. The raw JSON response from Moondream API for transparency
-
-Example:
-
-```
-Caption: A person sitting at a desk working on a computer.
-
-Raw API Response:
-{
-  "caption": "A person sitting at a desk working on a computer.",
-  "time_taken": 0.523
+# Bot command aliases (add more as needed)
+COMMAND_ALIASES = {
+    'caption': ['caption', 'c'],
+    'query': ['query', 'q'],
+    'detect': ['detect', 'd'],
+    'point': ['point', 'p']
 }
 ```
 
 ## Troubleshooting
 
 ### Bot Doesn't Respond
-
 - Verify that all required intents are enabled in the Discord Developer Portal
-- Check that your bot has proper permissions in your server
-- Ensure the bot is online and check your console for error messages
+- Check that your bot has the necessary permissions in your server
+- Ensure your `.env` file contains valid tokens
 
 ### API Errors
-
-- Verify your Moondream API key is correct
-- Check that you're within your API usage limits
-- Ensure the image format is supported (JPEG, PNG)
+- Check if your Moondream API key is valid
+- Ensure you're within the API rate limits
+- Verify that image formats are supported (JPG, PNG recommended)
 
 ### Thread Creation Issues
+- Ensure the bot has "Create Public Threads" and "Manage Threads" permissions
+- Some channels may have thread creation disabled by server settings
 
-- Ensure your bot has the "Create Public Threads" and "Manage Threads" permissions
-- Some older Discord servers may have thread features limited
-
-## Notes on Rate Limits
-
-- Discord has rate limits on thread creation
-- Moondream API may have rate limits based on your plan
-- Consider adding retry logic for production use
-
-## Additional Resources
-
-- [Discord.py Documentation](https://discordpy.readthedocs.io/)
-- [Moondream API Documentation](https://docs.moondream.ai/)
-- [Python Requests Library Documentation](https://docs.python-requests.org/)
+### Command Not Working in Thread
+- Make sure you're using the correct command format
+- Check if the thread was created by the Moondream bot
+- Verify that the thread has an associated image
 
 ## License
 
-This project is provided as open source. Feel free to modify and use as needed.
+[MIT License](LICENSE)
+
+## Credits
+
+- [Moondream API](https://console.moondream.ai/) - Vision AI API
+- [Discord.py](https://discordpy.readthedocs.io/) - Discord API wrapper
