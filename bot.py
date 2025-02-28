@@ -17,7 +17,7 @@ import time
 # Load environment variables
 load_dotenv()
 
-def visualize_bounding_boxes(image, boxes, outline="#FF0000", width=4):
+def visualize_bounding_boxes(image, boxes, outline="#FF1E1E", width=8):
     """Draw bounding boxes on a copy of the image and return an in-memory buffer."""
     # Create a copy of the image to avoid modifying the original
     img_copy = image.copy()
@@ -32,8 +32,8 @@ def visualize_bounding_boxes(image, boxes, outline="#FF0000", width=4):
         y_max = box["y_max"] * img_height
         # Draw a slightly thicker black outline first for contrast
         draw.rectangle([x_min, y_min, x_max, y_max], outline="#000000", width=width+2)
-        # Draw the bright red box on top
-        draw.rectangle([x_min, y_min, x_max, y_max], outline=outline, width=width)
+        # Draw bright red box
+        draw.rectangle([x_min, y_min, x_max, y_max], outline="#FF1E1E", width=width)
     
     # Save to buffer
     buf = io.BytesIO()
@@ -41,7 +41,7 @@ def visualize_bounding_boxes(image, boxes, outline="#FF0000", width=4):
     buf.seek(0)
     return buf
 
-def visualize_points(image, points, point_color="#FF0000", point_radius=5):
+def visualize_points(image, points, point_radius=5):
     """Draw points on a copy of the image and return an in-memory buffer."""
     # Create a copy of the image to avoid modifying the original
     img_copy = image.copy()
@@ -53,26 +53,43 @@ def visualize_points(image, points, point_color="#FF0000", point_radius=5):
         x = point["x"] * img_width
         y = point["y"] * img_height
         
-        # Draw outer black circle for contrast
-        outer_radius = point_radius * 3
+        # Draw outer black circle for contrast (largest)
+        outer_radius = point_radius * 5  # Increased from 3 to 5 for more spacing
         draw.ellipse(
-            [x - outer_radius - 1, y - outer_radius - 1, 
-             x + outer_radius + 1, y + outer_radius + 1],
-            outline="#000000", width=3
+            [x - outer_radius - 2, y - outer_radius - 2, 
+             x + outer_radius + 2, y + outer_radius + 2],
+            outline="#000000", width=6  # Increased from 3 to 6
         )
         
-        # Draw outer red circle
+        # Draw bright red outer circle
         draw.ellipse(
             [x - outer_radius, y - outer_radius, 
              x + outer_radius, y + outer_radius],
-            outline=point_color, width=2
+            outline="#FF1E1E", width=4  # Increased from 2 to 4
         )
         
-        # Draw solid inner point
+        # Draw neon green middle circle
+        middle_radius = point_radius * 3  # Adjusted for better spacing
         draw.ellipse(
-            [x - point_radius, y - point_radius, 
-             x + point_radius, y + point_radius],
-            fill=point_color
+            [x - middle_radius, y - middle_radius,
+             x + middle_radius, y + middle_radius],
+            outline="#00FF00", width=4  # Increased from 2 to 4
+        )
+        
+        # Draw solid bright red inner circle
+        inner_radius = point_radius * 1.5  # Added inner circle for better transition
+        draw.ellipse(
+            [x - inner_radius, y - inner_radius, 
+             x + inner_radius, y + inner_radius],
+            fill="#FF1E1E"
+        )
+        
+        # Draw larger neon green center dot
+        center_radius = point_radius * 0.8  # Increased from 0.5 to 0.8
+        draw.ellipse(
+            [x - center_radius, y - center_radius,
+             x + center_radius, y + center_radius],
+            fill="#00FF00"
         )
     
     # Save to buffer
