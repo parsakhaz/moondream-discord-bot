@@ -72,7 +72,8 @@ async def call_moondream_api(endpoint, image_base64, additional_params=None):
     # Prepare headers
     headers = {
         "X-Moondream-Auth": API_KEY,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "User-Agent": "MoondreamDiscordBot"
     }
     
     # Make the API call
