@@ -9,6 +9,8 @@ A Discord bot that integrates with Moondream's Vision AI API to analyze images d
 - **Multi-modal Image Analysis**: Analyze images using Moondream's powerful AI vision API
 - **Thread-Based Conversations**: Each image analysis gets its own dedicated thread for a clean conversation flow
 - **AI-Generated Thread Titles**: Dynamically names threads based on image content for better organization
+- **Image Caching System**: Efficiently caches processed images to reduce CPU load and improve response times
+- **Automatic Thread Cleanup**: Periodically cleans up old thread references to prevent memory leaks
 - **Automatic Image Handling**: Images are preserved within threads even when original messages are deleted
 - **Multiple Analysis Types**:
   - Image Captioning: Generate descriptive captions
@@ -18,6 +20,7 @@ A Discord bot that integrates with Moondream's Vision AI API to analyze images d
 - **Shorthand Commands**: Use simplified commands like `!c`, `!q`, `!d`, and `!p` for faster interaction
 - **Message Length Handling**: Automatically splits large responses to avoid Discord's message length limits
 - **Visual Separators**: Clear visual separation between responses for better readability
+- **Admin Commands**: Monitor cache performance and server resource usage
 
 ## Requirements
 
@@ -117,14 +120,45 @@ Once in a thread, you can use these shorthand commands:
 | `!p <object>` | Point at specified objects | `!p eyes` |
 | `!help` | Display detailed help information | `!help` |
 
+### Admin Commands
+
+These commands are available to users with administrator permissions:
+
+| Command | Description |
+|---------|-------------|
+| `!cache_stats` | View image cache statistics |
+| `!clear_cache` | Clear the image cache |
+| `!thread_stats` | View thread tracking statistics |
+
 ### Example Workflow
 
 1. User uploads image with `!c` in a channel
 2. Bot creates a thread with an AI-generated name based on the image content
 3. Bot posts the image caption in the thread
 4. User asks `!q what is the subject wearing?` in the thread
-5. Bot analyzes the same image and answers the question
+5. Bot analyzes the same image and answers the question (using cached image data)
 6. User can continue with more commands in the same thread
+
+## Performance Features
+
+### Image Caching System
+
+The bot implements an LRU (Least Recently Used) caching system for processed images:
+
+- Images are cached after initial processing and reused for subsequent commands
+- Significantly reduces CPU load by avoiding repeated image encoding
+- Cache size is configurable (default: 200 images)
+- Automatically evicts least recently used images when full
+- Performance statistics are logged every 24 hours
+
+### Thread Management
+
+The bot includes automated thread management:
+
+- Tracks thread creation time and usage
+- Automatically cleans up references to deleted or archived threads
+- Removes references to threads older than 7 days
+- Prevents memory leaks from long-running instances
 
 ## Thread Naming
 
@@ -148,6 +182,9 @@ For large API responses (especially with object detection), the bot automaticall
 Edit these values in `bot.py` to customize behavior:
 
 ```python
+# Image cache size
+image_cache = ImageCache(max_size=200)  # Number of images to keep in cache
+
 # Discord message size limits
 DISCORD_REGULAR_MSG_LIMIT = 1900  # Setting slightly under the 2000 limit for safety
 DISCORD_CODE_BLOCK_LIMIT = 1800  # Even smaller limit for code blocks due to backticks
@@ -181,6 +218,11 @@ COMMAND_ALIASES = {
 - If threads aren't being renamed, check that the bot has "Manage Threads" permissions
 - Very unusual images might not generate good titles; the bot will fall back to timestamp-based names
 - Check API logs for any errors during title generation
+
+### Performance Issues
+- Use `!cache_stats` to check if the cache is working effectively
+- Clear the cache with `!clear_cache` if you notice degraded performance
+- Check `!thread_stats` to ensure thread cleanup is working properly
 
 ### Command Not Working in Thread
 - Make sure you're using the correct command format

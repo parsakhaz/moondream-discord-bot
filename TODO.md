@@ -1,5 +1,19 @@
 # TODO List for Moondream Discord Bot
 
+## ✅ Completed Items
+
+- **Added image caching system**: Implemented LRU cache for processed images
+  - Created `ImageCache` class with hit/miss tracking
+  - Modified image processing workflow to use cache
+  - Added admin commands for cache management
+  - Added periodic cache statistics logging
+
+- **Improved thread management**: Added automated cleanup for old threads
+  - Added timestamp tracking for thread creation
+  - Implemented periodic task to remove stale references
+  - Added admin command to view thread statistics
+  - Added check for archived threads
+
 ## Critical Issues
 
 - **Fix message splitting**: The caption command (`!c`) is still hitting Discord's 2000 character limit with a 400 Bad Request error
@@ -23,35 +37,39 @@
   - Create a list of fallback title formats for different image types
   - Implement option to regenerate titles with a command like `!retitle`
 
-- **Add thread management commands**: Allow users to manage their analysis threads
+- **Add thread management commands for users**: Allow users to manage their analysis threads
   - Add command to archive threads after analysis is complete
-  - Create a command to list all active analysis threads
-  - Implement a thread cleanup system for old/unused threads
+  - Create a command to list all active analysis threads for the user
+  - Add option for users to manage thread archive duration
 
 - **Improve image reference system**: Better handle multiple images in threads
   - Allow referencing specific images when multiple are uploaded
   - Create a system to track image history within threads
   - Add command to display all images analyzed in a thread
 
-## Enhancements
+## Performance Optimizations
 
-- **Add better response formatting**: Improve readability of large responses
-  - Format detect/point results more visually (possibly using Discord embeds)
-  - Add visual markers or icons to make different parts of responses clearer
+- **Optimize image cache further**:
+  - Implement image resizing for very large images before caching
+  - Add configurable parameters for JPEG quality vs size
+  - Consider implementing partial cache persistence between restarts
+  - Add cache warmup for frequently used images
 
-- **Implement retry mechanism**: When API calls fail, retry with exponential backoff
-  - Add configurable retry parameters (max attempts, delay between retries)
-  - Provide user feedback during retry process
+- **Implement async HTTP client**:
+  - Replace synchronous requests with aiohttp for API calls
+  - Add connection pooling for better performance
+  - Implement proper retry logic for failed requests
 
 - **Add safeguards for API rate limits**: Implement queuing system for high-traffic servers
   - Track API usage to stay within Moondream's rate limits
   - Queue requests when approaching limits
-
-- **Improve command validation**: Check parameters before making API calls
-  - Add validation for each command's parameters
-  - Provide helpful error messages for invalid commands
+  - Add prioritization for different types of requests
 
 ## UI/UX Improvements
+
+- **Add better response formatting**: Improve readability of large responses
+  - Format detect/point results more visually (possibly using Discord embeds)
+  - Add visual markers or icons to make different parts of responses clearer
 
 - **Enhance image handling UI**: Make it clearer when a new image is being analyzed
   - Add timestamps to image analysis sessions
@@ -64,14 +82,19 @@
 - **Refine help command**: Make help more contextual and user-friendly
   - Add examples with each command in help message
   - Create command-specific help (`!help caption`, etc.)
-  - Include information about thread naming in help documentation
+  - Include information about caching in help documentation
 
 ## Testing & Documentation
 
-- **Test thread titling with diverse images**: Ensure naming works correctly for various image types
-  - Create test suite with diverse image samples (photos, art, diagrams, etc.)
-  - Document common title patterns and edge cases
-  - Gather user feedback on title quality and relevance
+- **Test cache performance**: Create benchmarks for different cache sizes and usage patterns
+  - Test with various image sizes and types
+  - Measure memory usage under different loads
+  - Determine optimal cache size for different server types
+
+- **Test thread cleanup**: Ensure thread cleanup works correctly over long periods
+  - Verify memory usage remains stable
+  - Check for edge cases with thread deletion and archiving
+  - Test with high thread volume
 
 - **Create automated tests**: Test all commands with various image types
   - Unit tests for utility functions
@@ -81,26 +104,21 @@
 - **Update documentation**: Ensure all features and fixes are documented
   - Update README with troubleshooting for common errors
   - Add developer documentation for extending the bot
-  - Create a user guide with examples of dynamic thread titling
+  - Create a user guide with examples of caching benefits
 
 ## Technical Debt
-
-- **Refactor thread creation process**: Improve the two-step thread creation and naming flow
-  - Consider using Discord's deferred responses for smoother UX
-  - Optimize the title generation to reduce processing time
-  - Add better error handling for thread renaming failures
 
 - **Refactor code structure**: Move to a more modular architecture
   - Separate command handling, API interaction, and Discord interface
   - Create utility modules for common operations
-  - Create dedicated module for thread title generation and management
+  - Create dedicated modules for caching and thread management
 
 - **Implement better logging**: Add structured logging for easier debugging
   - Log all API calls and responses (excluding image data)
   - Log Discord events and error conditions
-  - Add specific logging for thread creation and renaming events
+  - Add specific logging for cache hits/misses in production
 
 - **Add configuration management**: Move hardcoded values to config file
   - Create a config.py file for all constants and settings
   - Allow server-specific configuration
-  - Add configuration options for thread naming behavior
+  - Add configuration options for cache size and behavior

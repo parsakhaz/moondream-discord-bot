@@ -1,6 +1,7 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 import requests
+import sys
 import base64
 import json
 import io
@@ -10,9 +11,57 @@ from dotenv import load_dotenv
 import datetime
 import re
 import math
+from collections import OrderedDict
+import time
 
 # Load environment variables
 load_dotenv()
+
+# Create an image cache class for storing encoded images
+class ImageCache:
+    def __init__(self, max_size=200):
+        self.max_size = max_size
+        self.cache = OrderedDict()  # URL -> (base64_data, timestamp)
+        self.stats = {"hits": 0, "misses": 0}
+    
+    def get(self, url):
+        """Get base64 encoded image from cache if available"""
+        if url in self.cache:
+            # Move the item to the end to mark it as recently used
+            base64_data, _ = self.cache.pop(url)
+            self.cache[url] = (base64_data, time.time())
+            self.stats["hits"] += 1
+            return base64_data
+        self.stats["misses"] += 1
+        return None
+    
+    def put(self, url, base64_data):
+        """Store base64 encoded image in cache"""
+        # If cache is full, remove the least recently used item
+        if len(self.cache) >= self.max_size:
+            self.cache.popitem(last=False)
+        
+        # Store the new item with current timestamp
+        self.cache[url] = (base64_data, time.time())
+        return base64_data
+    
+    def get_stats(self):
+        """Get cache statistics"""
+        return {
+            "size": len(self.cache),
+            "max_size": self.max_size,
+            "hits": self.stats["hits"],
+            "misses": self.stats["misses"],
+            "hit_ratio": self.stats["hits"] / (self.stats["hits"] + self.stats["misses"]) if (self.stats["hits"] + self.stats["misses"]) > 0 else 0
+        }
+    
+    def clear(self):
+        """Clear the cache"""
+        self.cache.clear()
+        return True
+
+# Initialize the image cache
+image_cache = ImageCache(max_size=200)  # Adjust size based on your needs
 
 # Bot configuration
 intents = discord.Intents.default()
@@ -47,13 +96,27 @@ for cmd, aliases in COMMAND_ALIASES.items():
 async def on_ready():
     print(f'Logged in as {bot.user.name} ({bot.user.id})')
     print('------')
+    # Start the cache stats logging task
+    log_cache_stats.start()
+    # Start the thread cleanup task
+    cleanup_old_threads.start()
 
-def image_to_base64(image):
-    """Convert a PIL Image to base64 string"""
+def image_to_base64(image, url=None):
+    """Convert a PIL Image to base64 string, using cache if available"""
+    if url and (cached_data := image_cache.get(url)):
+        return cached_data
+    
+    # Not in cache, generate the base64
     buffer = io.BytesIO()
     image.save(buffer, format="JPEG")
     img_str = base64.b64encode(buffer.getvalue()).decode('utf-8')
-    return f"data:image/jpeg;base64,{img_str}"
+    base64_data = f"data:image/jpeg;base64,{img_str}"
+    
+    # Store in cache if URL was provided
+    if url:
+        image_cache.put(url, base64_data)
+    
+    return base64_data
 
 async def call_moondream_api(endpoint, image_base64, additional_params=None):
     """Call Moondream API and return the response"""
@@ -186,13 +249,14 @@ async def save_image_to_thread(thread, image_bytes, filename):
     thread_images[thread.id] = {
         'url': image_message.attachments[0].url,
         'filename': filename,
-        'message_id': image_message.id
+        'message_id': image_message.id,
+        'timestamp': datetime.datetime.now()
     }
     
     # Return the image message for reference
     return image_message
 
-async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=None, parameter=None):
+async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=None, parameter=None, image_url=None):
     """Process an image within a thread"""
     # Add a divider before the new response
     await thread.send("───────────────────────────────────────")
@@ -214,8 +278,8 @@ async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=
         image_bytes.seek(0)
         image = Image.open(image_bytes).convert('RGB')
         
-        # Convert image to base64
-        image_base64 = image_to_base64(image)
+        # Convert image to base64, using cache if URL is provided
+        image_base64 = image_to_base64(image, url=image_url)
         
         # If no endpoint specified, just confirm image is ready and send help
         if not endpoint:
@@ -256,15 +320,15 @@ async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=
         
         # Format the response based on the endpoint
         if actual_endpoint == 'caption':
-            formatted_result = f"**Caption:** {result['caption']}"
+            formatted_result = f"**Caption:** {result['caption']}\n───────────────────────────────────────"
         elif actual_endpoint == 'query':
-            formatted_result = f"**Question:** {parameter}\n**Answer:** {result['answer']}"
+            formatted_result = f"**Question:** {parameter}\n**Moondream:** {result['answer']}\n───────────────────────────────────────"
         elif actual_endpoint == 'detect':
-            formatted_result = f"**Detecting:** {parameter or 'subject'}\n**Found:** {json.dumps(result['objects'])}"
+            formatted_result = f"**Detecting:** {parameter or 'subject'}\n**Found:** {json.dumps(result['objects'])}\n───────────────────────────────────────"
         elif actual_endpoint == 'point':
-            formatted_result = f"**Pointing at:** {parameter or 'subject'}\n**Points:** {json.dumps(result['points'])}"
+            formatted_result = f"**Pointing at:** {parameter or 'subject'}\n**Points:** {json.dumps(result['points'])}\n───────────────────────────────────────"
         else:
-            formatted_result = f"**Raw response:** {json.dumps(result)}"
+            formatted_result = f"**Raw response:** {json.dumps(result)}\n───────────────────────────────────────"
         
         # Update the processing message with just the formatted result
         await MessageSplitter.edit_message(
@@ -303,7 +367,7 @@ async def is_moondream_thread(thread):
         return False
     
     # Check thread name
-    if "Moondream Analysis" in thread.name:
+    if "Moondream" in thread.name:
         return True
     
     # If we can't determine from the name, check if we have stored image data for this thread
@@ -350,9 +414,16 @@ async def on_message(message):
                     # Save the new image to the thread
                     await save_image_to_thread(thread, image_bytes, image_attachment.filename)
                     
-                    # Process with the new image
+                    # Process with the new image, passing the URL for caching
                     image_bytes.seek(0)
-                    await process_image_in_thread(thread, image_bytes, image_attachment.filename, endpoint, parameter)
+                    await process_image_in_thread(
+                        thread, 
+                        image_bytes, 
+                        image_attachment.filename, 
+                        endpoint, 
+                        parameter,
+                        image_url=image_attachment.url  # Pass the URL for caching
+                    )
                 
                 # Otherwise, use the last saved image for this thread
                 elif thread.id in thread_images:
@@ -362,8 +433,15 @@ async def on_message(message):
                     # Download the image
                     image_bytes = await download_image_bytes(image_info['url'])
                     
-                    # Process with the saved image
-                    await process_image_in_thread(thread, image_bytes, image_info['filename'], endpoint, parameter)
+                    # Process with the saved image, passing the URL for caching
+                    await process_image_in_thread(
+                        thread, 
+                        image_bytes, 
+                        image_info['filename'], 
+                        endpoint, 
+                        parameter,
+                        image_url=image_info['url']  # Pass the URL for caching
+                    )
                 
                 else:
                     await MessageSplitter.send_message(thread, "I can't find an image to analyze. Please start a new thread with an image.")
@@ -452,7 +530,7 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
         # Open the image and convert to base64 for API
         image_bytes.seek(0)
         image = Image.open(image_bytes).convert('RGB')
-        image_base64 = image_to_base64(image)
+        image_base64 = image_to_base64(image, url=attachment.url)  # Use cache for title generation
         
         # Get a title for the image
         title = await get_image_title(image_base64)
@@ -483,7 +561,14 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
             actual_endpoint = ALIAS_TO_COMMAND[endpoint]
             
         if actual_endpoint and actual_endpoint in ['caption', 'query', 'detect', 'point']:
-            await process_image_in_thread(thread, image_bytes, attachment.filename, actual_endpoint, parameter)
+            await process_image_in_thread(
+                thread, 
+                image_bytes, 
+                attachment.filename, 
+                actual_endpoint, 
+                parameter,
+                image_url=attachment.url  # Pass URL for caching
+            )
         else:
             # Just confirm image received if no specific endpoint
             # No divider needed for first message in thread
@@ -532,6 +617,85 @@ async def moondream_short(ctx, endpoint=None, *, parameter=None):
     """
     await moondream(ctx, endpoint, parameter=parameter)
 
+@tasks.loop(hours=24)
+async def cleanup_old_threads():
+    """Clean up old thread references to prevent memory leaks"""
+    try:
+        current_time = datetime.datetime.now()
+        removed = 0
+        
+        for thread_id in list(thread_images.keys()):
+            try:
+                # Try to fetch the thread
+                thread = bot.get_channel(thread_id)
+                
+                # Check if thread no longer exists or is archived
+                if not thread or thread.archived:
+                    del thread_images[thread_id]
+                    removed += 1
+                    continue
+                
+                # Check if thread data is older than 7 days
+                thread_data = thread_images[thread_id]
+                if 'timestamp' in thread_data:
+                    age = current_time - thread_data['timestamp']
+                    if age.days > 7:  # Remove data older than 7 days
+                        del thread_images[thread_id]
+                        removed += 1
+            except Exception as e:
+                print(f"Error checking thread {thread_id}: {e}")
+                # Remove problematic threads
+                if thread_id in thread_images:
+                    del thread_images[thread_id]
+                    removed += 1
+        
+        print(f"[THREAD CLEANUP] Removed {removed} old thread references. Active threads: {len(thread_images)}")
+    except Exception as e:
+        print(f"Error in cleanup_old_threads: {e}")
+
+@tasks.loop(hours=24)
+async def log_cache_stats():
+    """Log cache statistics periodically"""
+    stats = image_cache.get_stats()
+    print(f"[CACHE STATS] Size: {stats['size']}/{stats['max_size']}, Hit ratio: {stats['hit_ratio']*100:.2f}%")
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def cache_stats(ctx):
+    """View the image cache statistics"""
+    stats = image_cache.get_stats()
+    stats_message = (
+        "# Image Cache Statistics\n\n"
+        f"**Cache Size:** {stats['size']}/{stats['max_size']} images\n"
+        f"**Cache Hits:** {stats['hits']}\n"
+        f"**Cache Misses:** {stats['misses']}\n"
+        f"**Hit Ratio:** {stats['hit_ratio']*100:.2f}%\n"
+    )
+    await ctx.send(stats_message)
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def clear_cache(ctx):
+    """Clear the image cache"""
+    image_cache.clear()
+    await ctx.send("Image cache cleared successfully!")
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def thread_stats(ctx):
+    """View thread statistics"""
+    thread_count = len(thread_images)
+    active_threads = sum(1 for thread_id in thread_images if bot.get_channel(thread_id) and not bot.get_channel(thread_id).archived)
+    memory_usage = sum(sys.getsizeof(str(thread_data)) for thread_data in thread_images.values())
+    
+    stats_message = (
+        "# Thread Statistics\n\n"
+        f"**Total Tracked Threads:** {thread_count}\n"
+        f"**Active Threads:** {active_threads}\n"
+        f"**Memory Usage (approx):** {memory_usage / 1024:.2f} KB\n"
+    )
+    await ctx.send(stats_message)
+
 @bot.command(aliases=['info'])
 async def learn(ctx):
     """Learn more about Moondream Vision AI and its capabilities"""
@@ -572,7 +736,6 @@ async def learn(ctx):
     )
     
     await MessageSplitter.send_message(ctx.channel, learn_message)
-
 
 # Run the bot
 bot.run(os.getenv('DISCORD_TOKEN'))

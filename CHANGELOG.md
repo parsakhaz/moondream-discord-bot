@@ -5,6 +5,33 @@ All notable changes to the Moondream Discord Bot project will be documented in t
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2025-02-29
+
+### Added
+- Image caching system using LRU (Least Recently Used) eviction strategy
+- `ImageCache` class that stores processed base64 image data
+- Cache hit/miss statistics tracking for performance monitoring
+- Admin commands: `!cache_stats` and `!clear_cache` for cache management
+- Thread cleanup system that removes old thread references automatically
+- Admin command `!thread_stats` to monitor thread tracking and memory usage
+- Timestamps to thread tracking for age-based cleanup
+- Scheduled tasks for periodic cache statistics logging
+- Scheduled tasks for thread cleanup (runs every 24 hours)
+
+### Changed
+- Image processing workflow now checks cache before encoding
+- Improved memory usage by cleaning up stale thread references
+- Enhanced API calls with consistent User-Agent header "MoondreamDiscordBot/1.4.0"
+- Thread dictionary now stores creation timestamps
+- Image to base64 conversion now uses cached data when available
+- Thread matching now accepts all threads with "Moondream" in the name
+
+### Fixed
+- Memory leaks from accumulated thread references
+- Repeated image encoding for the same image
+- Unnecessary API load for repeated operations on the same image
+- Thread identification for renamed threads
+
 ## [1.4.0] - 2025-02-28
 
 ### Added
