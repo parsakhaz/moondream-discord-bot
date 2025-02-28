@@ -84,6 +84,35 @@ async def call_moondream_api(endpoint, image_base64, additional_params=None):
     else:
         return {"error": f"API Error: {response.status_code} - {response.text}"}
 
+async def get_image_title(image_base64):
+    """Generate a title for an image using Moondream API's query capability"""
+    try:
+        # Call the query endpoint with the specific question
+        result = await call_moondream_api('query', image_base64, {"question": "return a title for this image"})
+        
+        # Check if we got a valid response
+        if 'error' in result:
+            return None
+        
+        # Get the answer from the response
+        title = result.get('answer', '').strip()
+        
+        # Clean up the title if needed (remove quotes, etc.)
+        title = title.strip('"\'')
+        
+        # Limit the title length to fit Discord's thread name restrictions (100 chars max)
+        if len(title) > 80:
+            title = title[:77] + "..."
+            
+        # If we got an empty or very short title, return None
+        if len(title) < 3:
+            return None
+            
+        return title
+    except Exception as e:
+        print(f"Error generating image title: {e}")
+        return None
+
 async def download_image_bytes(url):
     """Download an image from a URL and return the bytes"""
     response = requests.get(url)
@@ -399,28 +428,52 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
     
     # Process only if the attachment is an image
     if attachment.content_type and attachment.content_type.startswith('image/'):
-        # Create a thread name based on the current time
+        # Create an initial temporary thread name with timestamp
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
-        thread_name = f"Moondream Analysis {timestamp}"
+        temp_thread_name = f"Moondream Analysis {timestamp}"
         
-        # Create a thread
-        thread = await ctx.message.create_thread(name=thread_name, auto_archive_duration=60)
+        # Create a thread with the temporary name
+        thread = await ctx.message.create_thread(name=temp_thread_name, auto_archive_duration=60)
         
         # Send a notification in the original channel pointing to the thread
         notification = await MessageSplitter.send_message(
             ctx.channel,
             f"✅ Image received from {ctx.author.mention}! Please continue in the thread: {thread.mention}",
-            delete_after=30
+            delete_after=900
         )
-        
-        # Send welcome message with user mention in the thread
-        await send_help_message(thread, ctx.author)
         
         # Download the image to bytes
         image_bytes = await download_image_bytes(attachment.url)
         
         # Save the image to the thread
         await save_image_to_thread(thread, image_bytes, attachment.filename)
+        
+        # Open the image and convert to base64 for API
+        image_bytes.seek(0)
+        image = Image.open(image_bytes).convert('RGB')
+        image_base64 = image_to_base64(image)
+        
+        # Get a title for the image
+        title = await get_image_title(image_base64)
+        
+        # Update thread name with the generated title if available
+        if title:
+            try:
+                # Ensure the title doesn't exceed Discord's thread name limits (100 chars)
+                formatted_title = f"Moondream: {title}"
+                if len(formatted_title) > 100:
+                    formatted_title = formatted_title[:97] + "..."
+                
+                # Update the thread name
+                await thread.edit(name=formatted_title)
+                
+                # Log the title that was generated
+                print(f"Thread renamed to: {formatted_title}")
+            except Exception as e:
+                print(f"Error updating thread name: {e}")
+        
+        # Send welcome message with user mention in the thread
+        await send_help_message(thread, ctx.author)
         
         # Process the image in the thread (map endpoint alias to actual endpoint if needed)
         image_bytes.seek(0)
@@ -441,7 +494,7 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
         notice = await MessageSplitter.send_message(
             ctx.channel, 
             f"{command_display}\n\nThe attachment does not appear to be an image.",
-            delete_after=10
+            delete_after=20
         )
         # Try to delete the original message
         await try_delete_message(ctx.message)
