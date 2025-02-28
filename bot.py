@@ -295,14 +295,33 @@ async def call_moondream_api(endpoint, image_base64, additional_params=None):
         "User-Agent": "MoondreamDiscordBot"
     }
     
-    # Make the API call
-    response = requests.post(url, headers=headers, json=payload)
+    # Try up to 3 times
+    for attempt in range(3):
+        try:
+            # Make the API call
+            response = requests.post(url, headers=headers, json=payload)
+            
+            # Check for success
+            if response.status_code == 200:
+                return response.json()
+            
+            # If we get here, the request failed but didn't raise an exception
+            print(f"API call failed (attempt {attempt + 1}/3): Status {response.status_code} - {response.text}")
+            
+            # If this was our last attempt, return the error
+            if attempt == 2:
+                return {"error": f"API Error: {response.status_code} - {response.text}"}
+                
+        except Exception as e:
+            # Log the error
+            print(f"API call exception (attempt {attempt + 1}/3): {str(e)}")
+            
+            # If this was our last attempt, re-raise
+            if attempt == 2:
+                return {"error": f"API Error: {str(e)}"}
     
-    # Check for success
-    if response.status_code == 200:
-        return response.json()
-    else:
-        return {"error": f"API Error: {response.status_code} - {response.text}"}
+    # We should never get here, but just in case
+    return {"error": "API call failed after all retries"}
 
 async def get_image_title(image_base64):
     """Generate a title for an image using Moondream API's query capability"""
