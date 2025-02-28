@@ -557,18 +557,17 @@ async def learn(ctx):
         "**🔍 Object Detection**\n"
         "Detect any object from an image and visualize it.\n\n"
         
-        "**👉 Point Detection**\n"
+        "**👉 Point to Objects**\n"
         "Get precise X,Y coordinate locations of any object in an image and point to it.\n\n"
         
         "## Technical Details\n\n"
         "• **Model Size**: 1.9B Parameters\n"
         "• **Memory**: Only requires 4GB~ VRAM\n"
         "• **License**: Apache 2.0\n"
-        "• **Documentation**: https://docs.moondream.ai/\n\n"
+        "• **Build with Moondream**: https://docs.moondream.ai/\n\n"
         
         "## Try It Now!\n\n"
-        "Upload an image with `!md` or use one of our specific commands like `!c` for captions.\n"
-        "Type `!help` to see all available commands."
+        "Upload an image with `!md` or use one of our specific commands like `!md c` for captions.\n"
     )
     
     await MessageSplitter.send_message(ctx.channel, learn_message)
