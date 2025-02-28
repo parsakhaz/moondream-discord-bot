@@ -388,7 +388,7 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
         reminder = await MessageSplitter.send_message(
             ctx.channel, 
             learn_message,
-            delete_after=15
+            delete_after=10
         )
         # Try to delete the original message
         await try_delete_message(ctx.message)
@@ -410,7 +410,7 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
         notification = await MessageSplitter.send_message(
             ctx.channel,
             f"✅ Image received from {ctx.author.mention}! Please continue in the thread: {thread.mention}",
-            delete_after=5
+            delete_after=30
         )
         
         # Send welcome message with user mention in the thread
@@ -484,9 +484,16 @@ async def learn(ctx):
     
     # Create a readable, formatted message about Moondream
     learn_message = (
-        "# About Moondream Vision AI\n\n"
-        "Moondream is a powerful and efficient Vision-Language Model (VLM) that can analyze images and respond to natural language queries.\n\n"
+        "# About Moondream Bot\n\n"
+        "Moondream bot uses a powerful and efficient Vision-Language Model (VLM) that can analyze images and respond to natural language queries.\n\n"
         
+        "To use it, run `!md` or one of the following commands with an image attached:\n\n"
+        "• `!md` - Start interactive mode with the attached image\n"
+        "• `!md caption` - Generate a caption for the attached image\n"
+        "• `!md query` - Ask a question about the attached image\n"
+        "• `!md detect` - Detect objects in the attached image\n"
+        "• `!md point` - Point to objects in the attached image\n\n"
+
         "## Core Capabilities\n\n"
         "**📝 Image Captioning**\n"
         "Moondream can caption your images.\n\n"
