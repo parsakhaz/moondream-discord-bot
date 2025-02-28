@@ -13,6 +13,8 @@ import re
 import math
 from collections import OrderedDict
 import time
+import psutil
+import platform
 
 # Load environment variables
 load_dotenv()
@@ -135,7 +137,7 @@ def optimize_image_load(image_bytes):
         img = Image.open(image_bytes)
         img.draft('RGB', (new_width, new_height))
         
-        print(f"Image optimized: {width}x{height} → {new_width}x{new_height} (scale: 1/{scale})")
+        # print(f"Image optimized: {width}x{height} → {new_width}x{new_height} (scale: 1/{scale})")
     
     # Convert to RGB mode for consistency
     img = img.convert('RGB')
@@ -249,7 +251,7 @@ def image_to_base64(image_bytes=None, image=None, url=None):
     """
     # Check cache first if URL is provided
     if url and (cached_data := image_cache.get(url)):
-        print(f"Cache hit for {url}")
+        # print(f"Cache hit for {url}")
         return cached_data
     
     # Not in cache, we need to process the image
@@ -267,7 +269,7 @@ def image_to_base64(image_bytes=None, image=None, url=None):
     
     # Store in cache if URL was provided
     if url:
-        print(f"Caching image for {url}")
+        # print(f"Caching image for {url}")
         image_cache.put(url, base64_data)
     
     return base64_data
@@ -328,7 +330,7 @@ async def get_image_title(image_base64):
             
         return title
     except Exception as e:
-        print(f"Error generating image title: {e}")
+        # print(f"Error generating image title: {e}")
         return None
 
 async def download_image_bytes(url):
@@ -727,7 +729,7 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
                 await thread.edit(name=formatted_title)
                 
                 # Log the title that was generated
-                print(f"Thread renamed to: {formatted_title}")
+                # print(f"Thread renamed to: {formatted_title}")
             except Exception as e:
                 print(f"Error updating thread name: {e}")
         
@@ -917,6 +919,53 @@ async def learn(ctx):
     )
     
     await MessageSplitter.send_message(ctx.channel, learn_message)
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def sys_stats(ctx):
+    """View system resource usage statistics for the bot"""
+    try:
+        # Get CPU info
+        cpu_percent = psutil.cpu_percent(interval=1)
+        cpu_count = psutil.cpu_count()
+        
+        # Get memory info
+        memory = psutil.Process().memory_info()
+        system_memory = psutil.virtual_memory()
+        
+        # Get disk info
+        disk = psutil.disk_usage('/')
+        
+        # Format the stats message
+        stats_message = (
+            "# System Resource Statistics\n\n"
+            "## CPU Usage\n"
+            f"**Total CPU Usage:** {cpu_percent}%\n"
+            f"**CPU Cores:** {cpu_count}\n"
+            f"**Per-Core Usage:** {', '.join(f'{x}%' for x in psutil.cpu_percent(percpu=True))}\n\n"
+            
+            "## Memory Usage\n"
+            f"**Bot Process RSS:** {memory.rss / (1024*1024):.2f} MB\n"
+            f"**Bot Process VMS:** {memory.vms / (1024*1024):.2f} MB\n"
+            f"**System Total:** {system_memory.total / (1024*1024*1024):.2f} GB\n"
+            f"**System Available:** {system_memory.available / (1024*1024*1024):.2f} GB\n"
+            f"**System Used:** {system_memory.percent}%\n\n"
+            
+            "## Disk Usage\n"
+            f"**Total:** {disk.total / (1024*1024*1024):.2f} GB\n"
+            f"**Used:** {disk.used / (1024*1024*1024):.2f} GB\n"
+            f"**Free:** {disk.free / (1024*1024*1024):.2f} GB\n"
+            f"**Usage:** {disk.percent}%\n\n"
+            
+            "## System Info\n"
+            f"**Platform:** {platform.system()} {platform.release()}\n"
+            f"**Python Version:** {platform.python_version()}\n"
+            f"**Process Uptime:** {datetime.datetime.now() - datetime.datetime.fromtimestamp(psutil.Process().create_time())}\n"
+        )
+        await MessageSplitter.send_message(ctx.channel, stats_message)
+        
+    except Exception as e:
+        await ctx.send(f"Error getting system stats: {str(e)}")
 
 # Run the bot
 bot.run(os.getenv('DISCORD_TOKEN'))

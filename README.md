@@ -58,7 +58,7 @@ source venv/bin/activate
 ### 3. Install Dependencies
 
 ```bash
-pip install discord.py requests python-dotenv Pillow
+pip install discord.py requests python-dotenv Pillow psutil
 ```
 
 ### 4. Configure Environment Variables
@@ -133,6 +133,7 @@ These commands are available to users with administrator permissions:
 | `!cache_stats` | View image cache statistics |
 | `!clear_cache` | Clear the image cache |
 | `!thread_stats` | View thread tracking statistics |
+| `!sys_stats` | View system resource usage (CPU, memory, disk) |
 
 ### Example Workflow
 
