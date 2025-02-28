@@ -25,6 +25,20 @@ API_KEY = os.getenv('MOONDREAM_API_KEY')
 # Dictionary to store the last image information for each thread
 thread_images = {}
 
+# Command aliases mapping
+COMMAND_ALIASES = {
+    'caption': ['caption', 'c'],
+    'query': ['query', 'q'],
+    'detect': ['detect', 'd'],
+    'point': ['point', 'p']
+}
+
+# Reverse mapping for alias lookup
+ALIAS_TO_COMMAND = {}
+for cmd, aliases in COMMAND_ALIASES.items():
+    for alias in aliases:
+        ALIAS_TO_COMMAND[alias] = cmd
+
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user.name} ({bot.user.id})')
@@ -77,13 +91,13 @@ async def send_help_message(thread, user):
         f"# Welcome {user.mention} to Moondream Vision AI\n\n"
         "I can analyze images using Moondream's vision API. Use one of these commands with the image below:\n\n"
         "**📝 Caption Generation**\n"
-        "`!moondream caption` - Generate a description of your image\n\n"
+        "`!moondream caption` or `!caption` or `!c` - Generate a description of your image\n\n"
         "**❓ Visual Question Answering**\n"
-        "`!moondream query [your question]` - Ask any question about your image\n\n"
+        "`!moondream query [your question]` or `!query [your question]` or `!q [your question]` - Ask any question about your image\n\n"
         "**🔍 Object Detection**\n"
-        "`!moondream detect [object]` - Detect specific objects in your image\n\n"
+        "`!moondream detect [object]` or `!detect [object]` or `!d [object]` - Detect specific objects in your image\n\n"
         "**👉 Object Pointing**\n"
-        "`!moondream point [object]` - Point to specific objects in your image\n\n"
+        "`!moondream point [object]` or `!point [object]` or `!p [object]` - Point to specific objects in your image\n\n"
         "Upload a new image at any time to analyze it!"
     )
     await thread.send(help_message)
@@ -111,13 +125,17 @@ async def save_image_to_thread(thread, image_bytes, filename):
 
 async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=None, parameter=None):
     """Process an image within a thread"""
+    # Add a divider before the new response
+    await thread.send("───────────────────────────────────────")
+    
     # Create an initial message that preserves the command context
     command_display = ""
     if endpoint:
-        command_display = f"**Command:** `!moondream {endpoint}"
+        # Show the exact command used
+        command_used = f"!{endpoint}"
         if parameter:
-            command_display += f" {parameter}"
-        command_display += "`\n\n"
+            command_used += f" {parameter}"
+        command_display = f"**Command:** `{command_used}`\n\n"
     
     processing_msg = await thread.send(f"{command_display}Processing your image...")
     
@@ -134,24 +152,29 @@ async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=
             await processing_msg.edit(content="Image received! What would you like to know about it?")
             return
         
+        # Map endpoint alias to actual endpoint if needed
+        actual_endpoint = endpoint
+        if endpoint in ALIAS_TO_COMMAND:
+            actual_endpoint = ALIAS_TO_COMMAND[endpoint]
+        
         # Prepare additional parameters based on endpoint
         additional_params = {}
         
-        if endpoint == 'query':
+        if actual_endpoint == 'query':
             if not parameter:
                 await processing_msg.edit(content=f"{command_display}Please provide a question for the image.")
                 return
             additional_params["question"] = parameter
             
-        elif endpoint == 'caption':
+        elif actual_endpoint == 'caption':
             additional_params["length"] = "normal"
             
-        elif endpoint in ['detect', 'point']:
+        elif actual_endpoint in ['detect', 'point']:
             object_to_find = parameter or "subject"  # Default to "subject" if no parameter provided
             additional_params["object"] = object_to_find
         
         # Call the API
-        result = await call_moondream_api(endpoint, image_base64, additional_params)
+        result = await call_moondream_api(actual_endpoint, image_base64, additional_params)
         
         # Check for errors
         if 'error' in result:
@@ -159,13 +182,13 @@ async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=
             return
         
         # Format the response based on the endpoint
-        if endpoint == 'caption':
+        if actual_endpoint == 'caption':
             formatted_result = f"**Caption:** {result['caption']}"
-        elif endpoint == 'query':
+        elif actual_endpoint == 'query':
             formatted_result = f"**Question:** {parameter}\n**Answer:** {result['answer']}"
-        elif endpoint == 'detect':
+        elif actual_endpoint == 'detect':
             formatted_result = f"**Detecting:** {parameter or 'subject'}\n**Found:** {json.dumps(result['objects'])}"
-        elif endpoint == 'point':
+        elif actual_endpoint == 'point':
             formatted_result = f"**Pointing at:** {parameter or 'subject'}\n**Points:** {json.dumps(result['points'])}"
         else:
             formatted_result = f"**Raw response:** {json.dumps(result)}"
@@ -213,14 +236,24 @@ async def on_message(message):
     if await is_moondream_thread(message.channel):
         thread = message.channel
         
-        # If it's a command in the thread (without the prefix)
-        command_match = re.match(r'!moondream\s+(\w+)(?:\s+(.+))?', message.content.strip())
+        # Check for all possible command formats, including shortcuts
+        # 1. Check for !moondream command format
+        moondream_match = re.match(r'!moondream\s+(\w+)(?:\s+(.+))?', message.content.strip())
+        # 2. Check for !command shortcut format
+        shortcut_match = re.match(r'!(\w+)(?:\s+(.+))?', message.content.strip())
+        
+        command_match = moondream_match
+        if not command_match:
+            command_match = shortcut_match
         
         if command_match:
             endpoint = command_match.group(1).lower()
             parameter = command_match.group(2) if command_match.group(2) else None
             
-            if endpoint in ['caption', 'query', 'detect', 'point']:
+            # Check if the command is a valid endpoint or an alias
+            valid_endpoint = endpoint in ['caption', 'query', 'detect', 'point'] or endpoint in ALIAS_TO_COMMAND
+            
+            if valid_endpoint:
                 # If there's an image attachment, use that
                 if message.attachments and any(att.content_type and att.content_type.startswith('image/') for att in message.attachments):
                     image_attachment = next(att for att in message.attachments if att.content_type and att.content_type.startswith('image/'))
@@ -280,7 +313,7 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
     """
     # Check if we're already in a thread - if so, redirect to use thread commands
     if isinstance(ctx.channel, discord.Thread) and await is_moondream_thread(ctx.channel):
-        await ctx.send("You're already in a Moondream thread! Just use commands like `!moondream caption` directly here.")
+        await ctx.send("You're already in a Moondream thread! Just use shortcut commands like `!caption`, `!query`, `!detect`, or `!point`.")
         return
     
     # Format the command for display
@@ -320,13 +353,18 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
         # Save the image to the thread
         await save_image_to_thread(thread, image_bytes, attachment.filename)
         
-        # Process the image in the thread
+        # Process the image in the thread (map endpoint alias to actual endpoint if needed)
         image_bytes.seek(0)
-        if endpoint and endpoint in ['caption', 'query', 'detect', 'point']:
-            await process_image_in_thread(thread, image_bytes, attachment.filename, endpoint, parameter)
+        actual_endpoint = endpoint
+        if endpoint and endpoint in ALIAS_TO_COMMAND:
+            actual_endpoint = ALIAS_TO_COMMAND[endpoint]
+            
+        if actual_endpoint and actual_endpoint in ['caption', 'query', 'detect', 'point']:
+            await process_image_in_thread(thread, image_bytes, attachment.filename, actual_endpoint, parameter)
         else:
             # Just confirm image received if no specific endpoint
-            await process_image_in_thread(thread, image_bytes, attachment.filename)
+            # No divider needed for first message in thread
+            await thread.send("Image received! What would you like to know about it?")
         
         # Try to delete the original message
         await try_delete_message(ctx.message)
@@ -334,6 +372,27 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
         notice = await ctx.send(f"{command_display}The attachment does not appear to be an image.", delete_after=10)
         # Try to delete the original message
         await try_delete_message(ctx.message)
+
+# Add command aliases for the main channel
+@bot.command(aliases=['c'])
+async def caption(ctx, *, parameter=None):
+    """Shortcut for !moondream caption"""
+    await moondream(ctx, 'caption', parameter=parameter)
+
+@bot.command(aliases=['q'])
+async def query(ctx, *, parameter=None):
+    """Shortcut for !moondream query"""
+    await moondream(ctx, 'query', parameter=parameter)
+
+@bot.command(aliases=['d'])
+async def detect(ctx, *, parameter=None):
+    """Shortcut for !moondream detect"""
+    await moondream(ctx, 'detect', parameter=parameter)
+
+@bot.command(aliases=['p'])
+async def point(ctx, *, parameter=None):
+    """Shortcut for !moondream point"""
+    await moondream(ctx, 'point', parameter=parameter)
 
 # Run the bot
 bot.run(os.getenv('DISCORD_TOKEN'))
