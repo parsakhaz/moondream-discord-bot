@@ -9,6 +9,7 @@ from PIL import Image
 from dotenv import load_dotenv
 import datetime
 import re
+import math
 
 # Load environment variables
 load_dotenv()
@@ -38,6 +39,10 @@ ALIAS_TO_COMMAND = {}
 for cmd, aliases in COMMAND_ALIASES.items():
     for alias in aliases:
         ALIAS_TO_COMMAND[alias] = cmd
+
+# Discord message size limits
+DISCORD_REGULAR_MSG_LIMIT = 1900  # Setting slightly under the 2000 limit for safety
+DISCORD_CODE_BLOCK_LIMIT = 1800  # Even smaller limit for code blocks due to backticks
 
 @bot.event
 async def on_ready():
@@ -86,21 +91,50 @@ async def download_image_bytes(url):
     return io.BytesIO(response.content)
 
 async def send_help_message(thread, user):
-    """Send a help message with available commands"""
+    """Send a simplified help message with available commands"""
     help_message = (
         f"# Welcome {user.mention} to Moondream Vision AI\n\n"
-        "I can analyze images using Moondream's vision API. Use one of these commands with the image below:\n\n"
+        "I can analyze images using Moondream's vision API. Use these commands with the image below:\n\n"
         "**📝 Caption Generation**\n"
-        "`!moondream caption` or `!caption` or `!c` - Generate a description of your image\n\n"
+        "`!c` - Generate a description of your image\n\n"
         "**❓ Visual Question Answering**\n"
-        "`!moondream query [your question]` or `!query [your question]` or `!q [your question]` - Ask any question about your image\n\n"
+        "`!q [your question]` - Ask any question about your image\n\n"
         "**🔍 Object Detection**\n"
-        "`!moondream detect [object]` or `!detect [object]` or `!d [object]` - Detect specific objects in your image\n\n"
+        "`!d [object]` - Detect specific objects in your image\n\n"
         "**👉 Object Pointing**\n"
-        "`!moondream point [object]` or `!point [object]` or `!p [object]` - Point to specific objects in your image\n\n"
-        "Upload a new image at any time to analyze it!"
+        "`!p [object]` - Point to specific objects in your image\n\n"
+        "Upload a new image at any time to analyze it! Use `!help` for more details."
     )
     await thread.send(help_message)
+
+async def send_detailed_help(channel):
+    """Send a detailed help message with all command options"""
+    help_message = (
+        "# Moondream Vision AI - Command Reference\n\n"
+        "## Short Commands (Recommended in threads)\n"
+        "- `!c` - Generate an image caption\n"
+        "- `!q [question]` - Ask a question about the image\n"
+        "- `!d [object]` - Detect objects in the image\n"
+        "- `!p [object]` - Point to objects in the image\n\n"
+        
+        "## Standard Commands (Also work in threads)\n"
+        "- `!caption` - Generate an image caption\n"
+        "- `!query [question]` - Ask a question about the image\n"
+        "- `!detect [object]` - Detect objects in the image\n"
+        "- `!point [object]` - Point to objects in the image\n\n"
+        
+        "## Full Commands (For main channels)\n"
+        "- `!moondream caption` - Generate an image caption\n"
+        "- `!moondream query [question]` - Ask a question about the image\n"
+        "- `!moondream detect [object]` - Detect objects in the image\n"
+        "- `!moondream point [object]` - Point to objects in the image\n\n"
+        
+        "## Tips\n"
+        "- Upload an image with any command to start a new analysis thread\n"
+        "- In a thread, use short commands without re-uploading the image\n"
+        "- To analyze a new image, start fresh in a main channel"
+    )
+    await channel.send(help_message)
 
 async def save_image_to_thread(thread, image_bytes, filename):
     """Save an image to a thread and store its reference for later use"""
@@ -123,6 +157,43 @@ async def save_image_to_thread(thread, image_bytes, filename):
     # Return the image message for reference
     return image_message
 
+async def split_and_send_message(channel, content):
+    """Split a long message and send it in chunks to avoid Discord's limit"""
+    # If content is short enough, send it as is
+    if len(content) <= DISCORD_REGULAR_MSG_LIMIT:
+        await channel.send(content)
+        return
+
+    # Otherwise, split it into chunks
+    chunks = [content[i:i + DISCORD_REGULAR_MSG_LIMIT] 
+              for i in range(0, len(content), DISCORD_REGULAR_MSG_LIMIT)]
+    
+    for chunk in chunks:
+        await channel.send(chunk)
+
+async def split_and_send_code_block(channel, content, language="json"):
+    """Split a code block into multiple messages if needed"""
+    # Calculate max content per code block (accounting for the backticks and language)
+    max_content = DISCORD_CODE_BLOCK_LIMIT - len(language) - 6  # 6 for the ```lang and ``` markers
+    
+    # If it fits in one message
+    if len(content) <= max_content:
+        await channel.send(f"```{language}\n{content}\n```")
+        return
+    
+    # Calculate number of parts needed
+    total_parts = math.ceil(len(content) / max_content)
+    
+    # Split and send
+    for i in range(total_parts):
+        start_pos = i * max_content
+        end_pos = min((i + 1) * max_content, len(content))
+        part_content = content[start_pos:end_pos]
+        
+        # Add part indicator
+        part_msg = f"```{language}\n# Part {i+1}/{total_parts}\n{part_content}\n```"
+        await channel.send(part_msg)
+
 async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=None, parameter=None):
     """Process an image within a thread"""
     # Add a divider before the new response
@@ -135,9 +206,10 @@ async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=
         command_used = f"!{endpoint}"
         if parameter:
             command_used += f" {parameter}"
-        command_display = f"**Command:** `{command_used}`\n\n"
+        command_display = f"**Command:** `{command_used}`"
     
-    processing_msg = await thread.send(f"{command_display}Processing your image...")
+    # Send the "processing" message
+    processing_msg = await thread.send(f"{command_display}\n\nProcessing your image...")
     
     try:
         # Open the image from bytes
@@ -162,7 +234,7 @@ async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=
         
         if actual_endpoint == 'query':
             if not parameter:
-                await processing_msg.edit(content=f"{command_display}Please provide a question for the image.")
+                await processing_msg.edit(content=f"{command_display}\n\nPlease provide a question for the image.")
                 return
             additional_params["question"] = parameter
             
@@ -178,7 +250,7 @@ async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=
         
         # Check for errors
         if 'error' in result:
-            await processing_msg.edit(content=f"{command_display}Error: {result['error']}")
+            await processing_msg.edit(content=f"{command_display}\n\nError: {result['error']}")
             return
         
         # Format the response based on the endpoint
@@ -193,11 +265,15 @@ async def process_image_in_thread(thread, image_bytes, image_filename, endpoint=
         else:
             formatted_result = f"**Raw response:** {json.dumps(result)}"
         
-        # Send the raw API response along with the formatted result
-        await processing_msg.edit(content=f"{command_display}{formatted_result}\n\n**Raw API Response:**\n```json\n{json.dumps(result, indent=2)}\n```")
+        # Update the processing message with just the formatted result
+        await processing_msg.edit(content=f"{command_display}\n\n{formatted_result}")
+        
+        # Send the raw API response as a separate message with proper splitting
+        raw_response = json.dumps(result, indent=2)
+        await split_and_send_code_block(thread, raw_response)
         
     except Exception as e:
-        await processing_msg.edit(content=f"{command_display}Error: {str(e)}")
+        await processing_msg.edit(content=f"{command_display}\n\nError: {str(e)}")
 
 async def try_delete_message(message):
     """Try to delete a message and handle permission errors"""
@@ -249,6 +325,11 @@ async def on_message(message):
         if command_match:
             endpoint = command_match.group(1).lower()
             parameter = command_match.group(2) if command_match.group(2) else None
+            
+            # Check if help command
+            if endpoint == 'help':
+                await send_detailed_help(thread)
+                return
             
             # Check if the command is a valid endpoint or an alias
             valid_endpoint = endpoint in ['caption', 'query', 'detect', 'point'] or endpoint in ALIAS_TO_COMMAND
@@ -307,21 +388,21 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
     Usage:
     !moondream - Start interactive mode with the attached image
     !moondream caption - Generate a caption for the attached image
-    !moondream query What's in this image? - Answer a question about the attached image
+    !moondream query What's in this image? - Ask a question about the attached image
     !moondream detect dog - Detect objects in the attached image
     !moondream point cat - Point at objects in the attached image
     """
     # Check if we're already in a thread - if so, redirect to use thread commands
     if isinstance(ctx.channel, discord.Thread) and await is_moondream_thread(ctx.channel):
-        await ctx.send("You're already in a Moondream thread! Just use shortcut commands like `!caption`, `!query`, `!detect`, or `!point`.")
+        await ctx.send("You're already in a Moondream thread! Just use shorthand commands like `!c`, `!q`, `!d`, or `!p`.")
         return
     
     # Format the command for display
-    command_display = f"**Command:** `{ctx.message.content}`\n\n"
+    command_display = f"**Command:** `{ctx.message.content}`"
     
     # Check if an image is attached
     if not ctx.message.attachments:
-        reminder = await ctx.send(f"{command_display}Please attach an image to analyze.", delete_after=10)
+        reminder = await ctx.send(f"{command_display}\n\nPlease attach an image to analyze.", delete_after=10)
         # Try to delete the original message
         await try_delete_message(ctx.message)
         return
@@ -369,7 +450,7 @@ async def moondream(ctx, endpoint=None, *, parameter=None):
         # Try to delete the original message
         await try_delete_message(ctx.message)
     else:
-        notice = await ctx.send(f"{command_display}The attachment does not appear to be an image.", delete_after=10)
+        notice = await ctx.send(f"{command_display}\n\nThe attachment does not appear to be an image.", delete_after=10)
         # Try to delete the original message
         await try_delete_message(ctx.message)
 
