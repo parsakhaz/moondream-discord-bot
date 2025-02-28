@@ -1,0 +1,41 @@
+# fly.toml - Configuration for Moondream Discord Bot
+
+app = "moondream-discord-bot"
+primary_region = "lax"  # Los Angeles (matches your config)
+kill_signal = "SIGINT"
+kill_timeout = 5
+
+[build]
+  builder = "paketobuildpacks/builder:base"
+  buildpacks = ["gcr.io/paketo-buildpacks/python"]
+
+[env]
+  PORT = "8080"  # Not used by Discord bot but required by Fly.io
+  PYTHONUNBUFFERED = "true"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false  # Don't stop machines for Discord bot (needs to stay running)
+  auto_start_machines = true
+  min_machines_running = 1  # Keep at least one instance running
+
+[processes]
+  app = "python bot.py"  # Main Discord bot process
+
+[[vm]]
+  memory = "2gb"  # Recommended for handling 100 servers
+  cpu_kind = "shared"
+  cpus = 2  # 2 shared CPUs should be sufficient
+
+[mounts]
+  source = "moondream_data"
+  destination = "/data"
+
+# Health check is optional for Discord bots
+[checks]
+  [checks.alive]
+    type = "tcp"
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "30s"
