@@ -1,5 +1,7 @@
 # TODO List for Moondream Discord Bot
 
+- make the visualization uniform with playground
+
 ## ✅ Completed Items
 
 - **Implemented smart image scaling**: Added efficient image size optimization
