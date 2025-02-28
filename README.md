@@ -9,7 +9,8 @@ A Discord bot that integrates with Moondream's Vision AI API to analyze images d
 - **Multi-modal Image Analysis**: Analyze images using Moondream's powerful AI vision API
 - **Thread-Based Conversations**: Each image analysis gets its own dedicated thread for a clean conversation flow
 - **AI-Generated Thread Titles**: Dynamically names threads based on image content for better organization
-- **Image Caching System**: Efficiently caches processed images to reduce CPU load and improve response times
+- **Optimized Image Processing**: Efficiently handles image encoding with zero redundancy
+- **Smart Image Caching**: Advanced LRU caching system that eliminates duplicate processing
 - **Automatic Thread Cleanup**: Periodically cleans up old thread references to prevent memory leaks
 - **Automatic Image Handling**: Images are preserved within threads even when original messages are deleted
 - **Multiple Analysis Types**:
@@ -141,11 +142,22 @@ These commands are available to users with administrator permissions:
 
 ## Performance Features
 
+### Image Processing Optimization
+
+The bot implements several optimizations for efficient image handling:
+
+- Single-pass image encoding during thread creation
+- Reuse of encoded images between operations
+- Zero redundant encoding operations
+- Efficient memory usage through smart data reuse
+- Automatic cleanup of unused image data
+
 ### Image Caching System
 
 The bot implements an LRU (Least Recently Used) caching system for processed images:
 
 - Images are cached after initial processing and reused for subsequent commands
+- First-operation caching ensures optimal performance from the start
 - Significantly reduces CPU load by avoiding repeated image encoding
 - Cache size is configurable (default: 200 images)
 - Automatically evicts least recently used images when full

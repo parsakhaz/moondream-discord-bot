@@ -32,6 +32,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unnecessary API load for repeated operations on the same image
 - Thread identification for renamed threads
 
+## [1.5.1] - 2025-02-29
+
+### Changed
+- Optimized image processing workflow to avoid redundant encoding operations
+- Modified `process_image_in_thread` to accept pre-encoded base64 images
+- Updated thread creation process to reuse encoded images between title generation and initial command
+- Enhanced caching efficiency by ensuring images are cached on first use
+- Improved memory usage by reducing duplicate image data in memory
+
+### Fixed
+- Eliminated redundant image encoding during thread creation and initial command processing
+- Fixed cache misses during thread title generation
+- Resolved inefficient image processing in command handling
+
 ## [1.4.0] - 2025-02-28
 
 ### Added
