@@ -1,12 +1,12 @@
 # fly.toml - Configuration for Moondream Discord Bot
 
 app = "moondream-discord-bot"
-primary_region = "lax"  # Los Angeles (matches your config)
-kill_signal = "SIGINT"
-kill_timeout = 5
+primary_region = "sea"
+
+[build]
+  # No buildpacks - use Dockerfile instead
 
 [env]
-  PORT = "8080"  # Not used by Discord bot but required by Fly.io
   PYTHONUNBUFFERED = "true"
 
 [http_service]
@@ -20,10 +20,11 @@ kill_timeout = 5
   app = "python bot.py"  # Main Discord bot process
 
 [[vm]]
-  memory = "2gb"  # Recommended for handling 100 servers
+  memory = "2gb"
   cpu_kind = "shared"
-  cpus = 2  # 2 shared CPUs should be sufficient
+  cpus = 2
 
+# Optional volume for data persistence
 [mounts]
   source = "moondream_data"
   destination = "/data"
