@@ -83,6 +83,61 @@ EOL
 chmod +x monitor_bot.sh
 ```
 
+### 2.1 Setup System Process to Monitor the Auto-Restart service
+
+Set up a process to ensure the monitoring script automatically boots up on restart
+
+```
+sudo tee /etc/systemd/system/monitor-health-check.service > /dev/null << 'EOL'
+[Unit]
+Description=Monitor Health Check Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c 'while true; do if ! systemctl is-active --quiet bot-monitor; then curl -H "Title: CRITICAL: Monitor Down" -H "Priority: urgent" -H "Tags: error,monitor,critical" -d "The bot monitoring service itself is down! System needs immediate attention." https://ntfy.sh/dsc-bot-moondream-prod; fi; sleep 60; done'
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+sudo systemctl daemon-reload
+sudo systemctl restart monitor-health-check
+```
+
+Check to see if the systemd service is up and running:
+
+```
+# Check if the service is active and running
+sudo systemctl status bot-monitor monitor-health-check
+
+# Check logs from the service
+sudo journalctl -u bot-monitor -f
+```
+
+### 2.2 Test the bot monitoring services monitoring service
+
+```
+# Kill the bot-monitor service
+sudo systemctl stop bot-monitor
+
+# Wait a few minutes (up to 5 minutes based on the check interval)
+# You should receive a notification that the monitor is down
+
+# Verify it's actually stopped
+sudo systemctl status bot-monitor
+# Should show "inactive (dead)"
+
+# Start it back up again
+sudo systemctl start bot-monitor
+
+# Verify it's running again
+sudo systemctl status bot-monitor
+# Should show "active (running)"
+```
+
 ### 3. Set Up Notifications
 
 1. Install the ntfy app on your device:
@@ -138,3 +193,55 @@ cat monitor_restart.log
 - The script logs only when restarts happen, to conserve disk space
 - Notifications include failure count to help identify recurring issues
 - To stop monitoring: `pkill -f "monitor_bot.sh"`
+
+## Sanity Check
+
+To test that everything is running properly, you'll need to check both the bot process and the monitoring systems. Here are the commands to run:
+
+1. **Check that the bot is running:**
+   ```bash
+   pgrep -f "python bot.py"
+   ```
+   This should return a process ID if the bot is running.
+
+2. **Check that the monitor script is running:**
+   ```bash
+   ps aux | grep monitor_bot.sh
+   ```
+   This should show the monitoring script process.
+
+3. **Check that the systemd services are active:**
+   ```bash
+   sudo systemctl status bot-monitor monitor-health-check
+   ```
+   Both services should show as "active (running)" with green dots.
+
+4. **View the logs from the monitoring services:**
+   ```bash
+   sudo journalctl -u bot-monitor -n 20
+   sudo journalctl -u monitor-health-check -n 20
+   ```
+
+5. **Check the restart log to see if any restarts have occurred:**
+   ```bash
+   cat monitor_restart.log
+   ```
+
+6. **Test the bot monitoring by killing the bot:**
+   ```bash
+   pkill -f "python bot.py"
+   ```
+   Wait 15 seconds - you should get a notification that the bot was down and restarted.
+
+7. **Test the monitor-health-check by stopping the bot-monitor service:**
+   ```bash
+   sudo systemctl stop bot-monitor
+   ```
+   Wait about a minute - you should get a notification that the monitoring service is down.
+
+8. **Don't forget to restart the bot-monitor after testing:**
+   ```bash
+   sudo systemctl start bot-monitor
+   ```
+
+These commands will help you verify that all components of your monitoring setup are functioning properly.
