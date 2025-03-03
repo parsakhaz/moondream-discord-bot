@@ -107,8 +107,6 @@ sudo systemctl daemon-reload
 sudo systemctl restart monitor-health-check
 ```
 
-Check to see if the systemd service is up and running:
-
 ```
 # Check if the service is active and running
 sudo systemctl status bot-monitor monitor-health-check
