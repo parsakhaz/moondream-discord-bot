@@ -360,8 +360,8 @@ async def download_image_bytes(url):
 async def send_help_message(thread, user):
     """Send a simplified help message with available commands"""
     help_message = (
-        f"# Welcome {user.mention} to Moondream Vision AI\n\n"
-        "I can analyze images using Moondream's vision API. Use these commands with the image below:\n\n"
+        f"# Welcome {user.mention} to Moondream Bot\n\n"
+        "I can analyze images using Moondream's vision API. Here are my commands:\n\n"
         "**📝 Caption Generation**\n"
         "`!c` - Generate a description of your image\n\n"
         "**❓ Visual Question Answering**\n"
@@ -905,23 +905,19 @@ async def learn(ctx):
     # Create a readable, formatted message about Moondream
     learn_message = (
         "# About Moondream Bot\n\n"
-        "Moondream bot uses a powerful and efficient Vision-Language Model (VLM) that can analyze images and respond to natural language queries.\n\n"
+        "I'm powered by Moondream, a small & fast vision model that runs anywhere.\n\n"
         
-        "To use it, run `!md` or one of the following commands with an image attached:\n\n"
-        "• `!md` - Start interactive mode with the attached image\n"
-        "• `!md caption` - Generate a caption for the attached image\n"
-        "• `!md query` - Ask a question about the attached image\n"
-        "• `!md detect` - Detect objects in the attached image\n"
-        "• `!md point` - Point to objects in the attached image\n\n"
+        "## Try It Now!\n\n"
+        "To get started, run `!md` with an image attached to your discord message.\n\n"
 
-        "## Core Capabilities\n\n"
-        "**📝 Image Captioning**\n"
-        "Moondream can caption your images.\n\n"
+        "## I can...\n\n"
+        "**📝 Caption Images**\n"
+        "Caption your image.\n\n"
         
-        "**❓ Question Answering**\n"
+        "**❓ Query Images**\n"
         "Ask questions about your images content and get answers.\n\n"
         
-        "**🔍 Object Detection**\n"
+        "**🔍 Detect Objects**\n"
         "Detect any object from an image and visualize it.\n\n"
         
         "**👉 Point to Objects**\n"
@@ -929,12 +925,9 @@ async def learn(ctx):
         
         "## Technical Details\n\n"
         "• **Model Size**: 1.9B Parameters\n"
-        "• **Memory**: Only requires 4GB~ VRAM\n"
+        "• **Memory**: Only requires 4.4GB~ VRAM\n"
         "• **License**: Apache 2.0\n"
         "• **Build with Moondream**: https://docs.moondream.ai/\n\n"
-        
-        "## Try It Now!\n\n"
-        "Upload an image with `!md` or use one of our specific commands like `!md c` for captions.\n"
     )
     
     await MessageSplitter.send_message(ctx.channel, learn_message)
